@@ -103,3 +103,5 @@ merge ((x:xs), (y:ys))
 --monadMerge l = runPar $ do parMerge l
 
 --parMerge :: [a] -> Par [a]
+
+main = print (parpseqJackknife (mean) [550])
