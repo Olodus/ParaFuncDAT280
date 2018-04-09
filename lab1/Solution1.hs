@@ -15,6 +15,9 @@ myParMap f (l:ls) = par x (pseq y (x:y))
         x = f l
         y = myParMap f ls
 
+parpseqJackknife :: ([a] -> b) -> [a] -> [b]
+parpseqJackknife f l = myParMap f $ resamples 500 l
+
 
 -- b) Eval Monad
 evalJackknife :: ([a] -> b) -> [a] -> [b] 
