@@ -104,4 +104,3 @@ merge ((x:xs), (y:ys))
 
 --parMerge :: [a] -> Par [a]
 
-main = print (parpseqJackknife (mean) [1..550])

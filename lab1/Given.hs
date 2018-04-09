@@ -2,7 +2,7 @@ module Given where
 
 import Data.List
 import System.Random
-import Criterion.Main
+--import Criterion.Main
 
 -- code borrowed from the Stanford Course 240h (Functional Systems in Haskell)
 -- I suspect it comes from Bryan O'Sullivan, author of Criterion
@@ -30,7 +30,7 @@ jackknife f = map f . resamples 500
 
 
 crud = zipWith (\x a -> sin (x / 300)**2 + a) [0..]
-
+{-
 main = do
   let (xs,ys) = splitAt 1500  (take 6000
                                (randoms (mkStdGen 211570155)) :: [Float] )
@@ -46,4 +46,4 @@ main = do
         [
          bench "jackknife" (nf (jackknife  mean) rs)
          ]
-
+-}
