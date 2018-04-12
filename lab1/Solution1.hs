@@ -155,13 +155,6 @@ stratMerge l = mergesort l `using` mergeStrat rseq
 mergeStrat :: Strategy a -> Strategy [a]
 mergeStrat strat = evalMerge (rparWith strat)
 
--- We must have misunderstood or we get lost inside how our lazy eval tree looks
--- We think it looks like this:
--- [ merge ( _ , _ ) , merge ( _ , _ ) , .... ]
---           ^
---          [ merge ( _ , _ ) , ... ]
---                    ^ finally
---                   [a]
 evalMerge :: Strategy a -> Strategy [a]
 evalMerge  _ [] = return []
 evalMerge strat (x:xs) = do
