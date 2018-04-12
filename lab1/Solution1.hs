@@ -10,7 +10,8 @@ import Control.Monad
 
 -- myParMap
 -- Executes map on a list in parallel. 
--- Recursively calls par and pseq on every element with the given function applied to it.
+-- Recursively calls par and pseq on 
+-- every element with the given function applied to it.
 myParMap :: (a -> b) -> [a] -> [b]
 myParMap f [] = []
 myParMap f (l:ls) = par x (pseq y (x:y))
@@ -49,7 +50,8 @@ stratJackknife f xs = map f (resamples 500 xs) `using` jackstrat rseq
 
 -- evalstrat
 -- Applies a strategy to every element in a list
--- Same as evalList but we wanted to implement it for better understanding. 
+-- Same as evalList but we wanted to 
+-- implement it for better understanding. 
 evalstrat :: Strategy a -> Strategy [a]
 evalstrat strat [] = return []
 evalstrat strat (x:xs) = do
@@ -148,6 +150,7 @@ monadMerge :: (NFData a, Ord a) => [a] -> [a]
 monadMerge l = runPar $ parMergesort l 0
 
 -- With Strategies
+-- This solution isn't working.
 
 stratMerge :: Ord a => [a] -> [a]
 stratMerge l = mergesort l `using` mergeStrat rseq
@@ -162,10 +165,3 @@ evalMerge strat (x:xs) = do
     ys <- evalMerge strat xs
     return (y:ys)
 
--- A try to better split it up
-{-split :: [a] -> ([b],[b])
-split x 
-  | l > 1 = mapTuple (split) (splitAt (quot l 2) x)
-  | otherwise = x
-  where l = length x
--}
