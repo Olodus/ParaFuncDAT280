@@ -12,6 +12,7 @@ main = do
   -- handy (later) to give same input different parallel functions
 
   let rs = crud xs ++ ys
-  print (stratJackknife (sum) rs)
+  --print (stratJackknife (sum) rs)
+  print $ monadMerge rs
 
 
