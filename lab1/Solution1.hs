@@ -30,9 +30,10 @@ parMapEval f (x:xs) = do
     ys <- parMapEval f xs
     return (y:ys)
 
+
 -- c) Strategies
 stratJackknife :: ([a] -> b) -> [a] -> [b]
-stratJackknife f xs = jackknife f xs `using` jackstrat rseq
+stratJackknife f xs = map f (resamples 500 xs) `using` jackstrat rseq
 
 evalstrat :: Strategy a -> Strategy [a]
 evalstrat strat [] = return []
@@ -65,6 +66,8 @@ myParMapM f xs = do
 
 monadJackknife :: NFData b => ([a] -> b) -> [a] -> [b]
 monadJackknife f l = runPar $ myParMapM (f) (resamples 500 l)
+
+
 
 -- Assignment 2
 
