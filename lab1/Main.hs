@@ -13,6 +13,6 @@ main = do
 
   let rs = crud xs ++ ys
   --print (stratJackknife (sum) rs)
-  print $ monadMerge rs
+  print $ stratMerge rs
 
 
