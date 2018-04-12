@@ -4,6 +4,7 @@ import Control.Parallel
 import Control.Parallel.Strategies
 import Control.Monad.Par
 import Given
+import Control.Monad
 
 -- a) Using par & pseq
 
@@ -109,26 +110,26 @@ merge ((x:xs), (y:ys))
   | x >  y = (y:merge ((x:xs), ys))
 
 -- With Par Monad
---monadMerge :: Ord a => [a] -> [a]
---monadMerge l = runPar $ do parMerge l
 
-mySpawnMerge :: [a] -> Par [a]
-mySpawnMerge [] = return []
-mySpawnMerge a = get (myspawn (monadMerge a))
+parMergesort :: (NFData a, Ord a) => [a] -> Par [a]
+parMergesort x 
+  | l > 1 = do 
+    i <- myspawn (parMergesort x1)
+    j <- myspawn (parMergesort x2)
+    (parmerge i j)
+  | otherwise = do return x
+    where l = length x
+          (x1, x2) = splitAt (quot l 2) x
 
-monadMerge :: Ord a => [a] -> Par [a]
-monadMerge [] = return []
-monadMerge x | l > 1 = return mergePar $ mapTuple (mySpawnMerge) (splitAt (quot l 2) x) 
-             | otherwise = return x
-             where l = length x
 
-mergePar :: Ord a => (Par [a], Par [a]) -> Par [a]
-mergePar ((x:xs), (y:ys))
-  | x <= y = Par (x:mergePar ((return xs, return (y:ys))))
-  | x >  y = Par (y:mergePar ((return (x:xs), return ys)))
+parmerge :: Ord a => IVar [a] -> IVar [a] -> Par [a]
+parmerge a b = do
+    a' <- get a
+    b' <- get b
+    --ab <- sequenceT (a',b')
+    return (merge (a',b'))
 
---parMerge :: [a] -> [a]
---parMerge a = runPar (monadMerge a)
+sequenceT (a1, a2) = return (,) <*> a1 <*> a2
 
--- maybe try func composition on myspawnmerge
-
+monadMerge :: (NFData a, Ord a) => [a] -> [a]
+monadMerge l = runPar $ parMergesort l
