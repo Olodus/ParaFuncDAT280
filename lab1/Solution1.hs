@@ -32,6 +32,7 @@ parMapEval f (x:xs) = do
 
 
 -- c) Strategies
+-- Maybe parFlatMap is the one you want for this...
 stratJackknife :: ([a] -> b) -> [a] -> [b]
 stratJackknife f xs = map f (resamples 500 xs) `using` jackstrat rseq
 
@@ -73,7 +74,7 @@ monadJackknife f l = runPar $ myParMapM (f) (resamples 500 l)
 
 -- With Strategies
 stratMerge :: Ord a => [a] -> [a]
-stratMerge l = mergesort l --'using' (mergeStrat rseq)
+stratMerge l = mergesort l --'using' parPair rpar rpar
 
 -- Borde nog vara något lite mer parPair liknande... 
 -- Typ att du skickar rpar till parPair ... och ger rpar rseq...?
@@ -83,6 +84,12 @@ stratMerge l = mergesort l --'using' (mergeStrat rseq)
 --    x <- strat l
 --    xs <- mergeStrat strat ls
 --    return (x:xs)
+
+evalPair :: Strategy a -> Strategy (a,a)
+evalPair sa (a,b) = do
+    a' <- sa a
+    b' <- sa b
+    return (a',b')
 
 -- Mergesort without parallism
 mergesort :: Ord a => [a] -> [a]
@@ -105,5 +112,23 @@ merge ((x:xs), (y:ys))
 --monadMerge :: Ord a => [a] -> [a]
 --monadMerge l = runPar $ do parMerge l
 
---parMerge :: [a] -> Par [a]
+mySpawnMerge :: [a] -> Par [a]
+mySpawnMerge [] = return []
+mySpawnMerge a = get (myspawn (monadMerge a))
+
+monadMerge :: Ord a => [a] -> Par [a]
+monadMerge [] = return []
+monadMerge x | l > 1 = return mergePar $ mapTuple (mySpawnMerge) (splitAt (quot l 2) x) 
+             | otherwise = return x
+             where l = length x
+
+mergePar :: Ord a => (Par [a], Par [a]) -> Par [a]
+mergePar ((x:xs), (y:ys))
+  | x <= y = Par (x:mergePar ((return xs, return (y:ys))))
+  | x >  y = Par (y:mergePar ((return (x:xs), return ys)))
+
+--parMerge :: [a] -> [a]
+--parMerge a = runPar (monadMerge a)
+
+-- maybe try func composition on myspawnmerge
 
