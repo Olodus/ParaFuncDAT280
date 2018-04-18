@@ -1,10 +1,12 @@
-module Solution1 where
+module LabA24 where
 
 import Control.Parallel
 import Control.Parallel.Strategies
 import Control.Monad.Par
 import Control.Monad
 import Data.List 
+import Control.DeepSeq
+
 
 -- Given
   
@@ -41,7 +43,7 @@ jackknife f = map f . resamples 500
 -- Executes map on a list in parallel. 
 -- Recursively calls par and pseq on 
 -- every element with the given function applied to it.
-myParMap :: (a -> b) -> [a] -> [b]
+myParMap :: (NFData a, NFData b) => (a -> b) -> [a] -> [b]
 myParMap f [] = []
 myParMap f (l:ls) = par x (pseq y (x:y))
     where 
@@ -50,7 +52,7 @@ myParMap f (l:ls) = par x (pseq y (x:y))
 
 -- parpseqJackknife 
 -- Uses our "myParMap" to run jackknife in parallel
-parpseqJackknife :: ([a] -> b) -> [a] -> [b]
+parpseqJackknife :: (NFData a, NFData b) => ([a] -> b) -> [a] -> [b]
 parpseqJackknife f l = myParMap f $ resamples 500 l
 
 
@@ -67,6 +69,7 @@ parMapEval _ [] = return []
 parMapEval f (x:xs) = do
     y  <- rpar (f x)
     ys <- parMapEval f xs
+    rseq y
     return (y:ys)
 
 
