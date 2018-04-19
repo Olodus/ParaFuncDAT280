@@ -123,47 +123,10 @@ merge ((x:xs), (y:ys))
   | x >  y = (y:merge ((x:xs), ys))
 
 
--- Sequential mergesort using Merger data type
-
--- Data type describing a mergesort tree
-data Merger a
-    = Split (Merger a,Merger a)
-    | Ordered [a] 
-    | End a
-
-seqsplit :: [a] -> ([a],[a])
-seqsplit xs = splitAt (quot l 2) xs
-    where l = length xs
-
-
-fullysplit :: [a] -> Merger a
-fullysplit [] = error "Can't split empty list"
-fullysplit xs | l > 1 = Split (fullysplit (fst s), fullysplit (snd s))
-            | otherwise = End (head xs)
-              where s = seqsplit xs
-                    l = length xs
-
-ms :: Ord a => Merger a -> Merger a -> Merger a
-ms (Split (x,y)) a = ms (ms x y) a
-ms a (Split (x,y)) = ms (ms x y) a
-ms (End x) a = ms (Ordered [x]) a
-ms a (End x) = ms (Ordered [x]) a
-ms (Ordered xs) (Ordered ys) = Ordered (merge (xs, ys))
-
-mergermerge :: Ord a => Merger a -> [a]
-mergermerge (End x) = [x]
-mergermerge (Ordered xs) = xs
-mergermerge (Split (x, y)) = mergermerge (ms x y)
-
--- Sequential mergesort using Mergers
-mergersort :: Ord a => [a] -> [a]
-mergersort xs = mergermerge $ fullysplit xs
-
 -- With Par Monad
--- This solution isn't working.
 
 -- parMergesort
--- Forks for everytime mergesort splits the list. 
+-- Forks/spawn for everytime mergesort splits the list. 
 parMergesort :: (NFData a, Ord a) => [a] -> Int -> Par [a]
 parMergesort x depth 
   | depth > 8 = return (mergesort x)
@@ -176,81 +139,93 @@ parMergesort x depth
           (x1, x2) = splitAt (quot l 2) x
 
 
+-- parmerge 
+-- Waits on two IVar's with lists and then merges them
 parmerge :: Ord a => IVar [a] -> IVar [a] -> Par [a]
 parmerge a b = do
     a' <- get a
     b' <- get b
     return (merge (a',b'))
 
-
+-- monadMerge
+-- Sorts a list with mergesort using the Par Monad
 monadMerge :: (NFData a, Ord a) => [a] -> [a]
 monadMerge l = runPar $ parMergesort l 0
 
+
+-- Eval Monad
+
+-- mergesort2
+-- Sorts a list with mergesort using the Eval Monad
+mergesort2 :: Ord a => [a] -> [a]
+mergesort2 x = runEval (evalMergesort 4 x)
+
+-- evalMergesort
+-- Splits, roar's and mergesorts a list. Returns a Eval list
+-- (We know it isn't the most beautiful code but we had problems 
+-- since it wasn't running in parallel on one of our systems
+-- and we could not find out why. In the end we didn't have time
+evalMergesort :: Ord a => Integer -> [a] -> Eval [a]
+evalMergesort _ [] = return []
+evalMergesort _ [x] = return [x]
+evalMergesort t x | (t <= 0) = do
+      let l = length x
+      let split = (splitAt (quot l 2) x)
+      let l1 = (fst split)
+      let l2 = (snd split)
+      let l1' = rseq (evalMergesort 0 l1)
+      let l2' = rseq (evalMergesort 0 l2)
+      l3 <- l1'
+      l4 <- l2'
+      l5 <- l3
+      l6 <- l4
+      return (merge (l5, l6))
+                   | otherwise  = do 
+      let l = length x
+      let split = (splitAt (quot l 2) x)
+      let l1 = (fst split)
+      let l2 = (snd split)
+      let l1' = rpar (evalMergesort (t-1) l1)
+      let l2' = rpar (evalMergesort (t-1) l2)
+      l3 <- l1'
+      l4 <- l2'
+      l5 <- l3
+      l6 <- l4
+      return (merge (l5, l6))
+
 -- With Strategies
--- This solution isn't working.
 
 stratMerge :: Ord a => [a] -> [a]
-stratMerge l = mergesort l `using` mergeStrat rseq
+stratMerge l = mergesort l `using` mergeStrat 15
 
-mergeStrat :: Strategy a -> Strategy [a]
-mergeStrat strat = evalMerge (rparWith strat)
+mergeStrat :: Ord a =>  Integer -> Strategy [a]
+mergeStrat threshold = evalMerge threshold
 
-evalMerge :: Strategy a -> Strategy [a]
+evalMerge :: Ord a =>  Integer -> Strategy [a]
 evalMerge  _ [] = return []
-evalMerge strat (x:xs) = do
-    y <- rparWith strat x
-    ys <- evalMerge strat xs
-    return (y:ys)
+evalMerge  _ [x] = return [x]
+evalMerge t x | (t <= 0) = do -- after threshold
+     let l = length x
+     let split = (splitAt (quot l 2) x)
+     let l1 = (fst split)
+     let l2 = (snd split)
+     let l1' = rseq (evalMerge 0 l1)
+     let l2' = rseq (evalMerge 0 l2)
+     l3 <- l1'
+     l4 <- l2'
+     l5 <- l3
+     l6 <- l4
+     return (merge (l5, l6))
+                   | otherwise  = do  -- before threshold
+     let l = length x
+     let split = (splitAt (quot l 2) x)
+     let l1 = (fst split)
+     let l2 = (snd split)
+     let l1' = rpar (evalMerge (t-1) l1)
+     let l2' = rpar (evalMerge (t-1) l2)
+     l3 <- l1'
+     l4 <- l2'
+     l5 <- l3
+     l6 <- l4
+     return (merge (l5, l6))
 
--- With Producer-Consumer approch
-{--
-data IList a
-  = Nil
-  | Cons a (IVar (IList a))
-
-type Stream a = IVar (IList a)
-
-streamSplit :: NFData a => [a] -> Par (Stream a)
-streamSplit xs = do 
-    var <- new
-    fork $ split xs var
-    return var
-  where 
-    split [] var = put var Nil
-    split (x:xs) var = do
-        tail <- new
-        put var (Cons x tail)
-
-streamMerge :: Stream a -> Par a
-streamMerge strm = do
-    ilst <- get strm
-    case ilst of
-      Nil -> return 
-      --}
-
-
-divConq :: (NFData prob, NFData sol) => 
-                          (prob -> Bool) -> 
-                          (prob -> [prob]) -> 
-                          ([sol] -> sol) -> 
-                          (prob -> sol) ->
-                          prob -> Par sol
-divConq ndiv split mergec bc xs = go xs
-  where 
-      go xs 
-        | ndiv xs = return (bc xs)
-        | otherwise = do 
-            sols <- parMapM go (split xs)
-            return (mergec sols)
-
-mergeSortCool :: (NFData a, Ord a) => [a] -> [a]
-mergeSortCool xs = runPar $ divConq (\xs -> length xs < 2) split mergec id xs
-    where split xs = let (a, b) = splitAt (length xs `div` 2) xs
-                      in [a, b]
-          mergec [] = []
-          mergec [as] = as 
-          mergec (as:bs:[]) = mergec2 as bs
-          mergec2 [] bs = bs
-          mergec2 as [] = as
-          mergec2 (a:as) (b:bs) | a <= b = a:mergec2 as (b:bs)
-                                | a >  b = b:mergec2 (a:as) bs

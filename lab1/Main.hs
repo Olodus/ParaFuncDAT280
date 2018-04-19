@@ -12,12 +12,14 @@ main = do
   -- handy (later) to give same input different parallel functions
 
   let rs = crud xs ++ ys
-  --print (stratJackknife (sum) rs)
-  --print $ length (monadMerge rs)
+  --print $ length (mergesort rs)
+  
 
   defaultMain [
-    bgroup "mergesort" [ bench "sequential" $ whnf mergesort rs
-                       , bench "Par Monad"  $ whnf monadMerge rs
+    bgroup "mergesort" [ bench "sequential" $ whnf length (mergesort rs)
+                       , bench "Par Monad"  $ whnf length (monadMerge rs)
+                       , bench "Eval Monad" $ whnf length (mergesort2 rs)
+                       , bench "Strategies" $ whnf length (stratMerge rs)
                        ]
     ]
 
