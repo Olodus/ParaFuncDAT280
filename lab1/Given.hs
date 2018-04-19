@@ -2,7 +2,6 @@ module Given where
 
 import Data.List
 import System.Random
---import Criterion.Main
 
 -- code borrowed from the Stanford Course 240h (Functional Systems in Haskell)
 -- I suspect it comes from Bryan O'Sullivan, author of Criterion

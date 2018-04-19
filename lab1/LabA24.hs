@@ -4,46 +4,46 @@ import Control.Parallel
 import Control.Parallel.Strategies
 import Control.Monad.Par
 import Control.Monad
-import Data.List 
-import Control.DeepSeq
-
+import Data.List
 
 -- Given
-  
--- code borrowed from the Stanford Course 240h (Functional Systems in Haskell) 
--- I suspect it comes from Bryan O'Sullivan, author of Criterion 
- 
-data T a = T !a !Int 
-  
-mean :: (RealFrac a) => [a] -> a 
-mean = fini . foldl' go (T 0 0) 
-  where 
-    fini (T a _) = a 
-    go (T m n) x = T m' n' 
-      where m' = m + (x - m) / fromIntegral n' 
-            n' = n + 1 
- 
-resamples :: Int -> [a] -> [[a]] 
-resamples k xs = 
-    take (length xs - k) $ 
-    zipWith (++) (inits xs) (map (drop k) (tails xs)) 
- 
- 
-jackknife :: ([a] -> b) -> [a] -> [b] 
-jackknife f = map f . resamples 500 
+--
+-- code borrowed from the Stanford Course 240h (Functional Systems in Haskell)
+-- I suspect it comes from Bryan O'Sullivan, author of Criterion
+
+data T a = T !a !Int
 
 
--- Solution
+mean :: (RealFrac a) => [a] -> a
+mean = fini . foldl' go (T 0 0)
+  where
+    fini (T a _) = a
+    go (T m n) x = T m' n'
+      where m' = m + (x - m) / fromIntegral n'
+            n' = n + 1
+
+
+resamples :: Int -> [a] -> [[a]]
+resamples k xs =
+    take (length xs - k) $
+    zipWith (++) (inits xs) (map (drop k) (tails xs))
+
+crud = zipWith (\x a -> sin (x / 300)**2 + a) [0..]
+
+jackknife :: ([a] -> b) -> [a] -> [b]
+jackknife f = map f . resamples 500
+
+
+-- Our Solution
 
 -- Assignment 1
-
 -- a) Using par & pseq
 
 -- myParMap
 -- Executes map on a list in parallel. 
 -- Recursively calls par and pseq on 
 -- every element with the given function applied to it.
-myParMap :: (NFData a, NFData b) => (a -> b) -> [a] -> [b]
+myParMap :: (a -> b) -> [a] -> [b]
 myParMap f [] = []
 myParMap f (l:ls) = par x (pseq y (x:y))
     where 
@@ -52,7 +52,7 @@ myParMap f (l:ls) = par x (pseq y (x:y))
 
 -- parpseqJackknife 
 -- Uses our "myParMap" to run jackknife in parallel
-parpseqJackknife :: (NFData a, NFData b) => ([a] -> b) -> [a] -> [b]
+parpseqJackknife :: ([a] -> b) -> [a] -> [b]
 parpseqJackknife f l = myParMap f $ resamples 500 l
 
 
@@ -69,7 +69,6 @@ parMapEval _ [] = return []
 parMapEval f (x:xs) = do
     y  <- rpar (f x)
     ys <- parMapEval f xs
-    rseq y
     return (y:ys)
 
 
@@ -126,8 +125,6 @@ monadJackknife f l = runPar $ myParMapM (f) (resamples 500 l)
 
 
 -- Assignment 2
--- We were not able to solve this assignment. 
--- We hope you can help us understand where we go wrong. 
 
 -- Mergesort without parallism
 
@@ -154,46 +151,61 @@ merge ((x:xs), (y:ys))
   | x <= y = (x:merge (xs, (y:ys)))
   | x >  y = (y:merge ((x:xs), ys))
 
+
 -- With Par Monad
--- This solution isn't working.
 
 -- parMergesort
--- Forks for everytime mergesort splits the list. 
+-- Forks/spawn for everytime mergesort splits the list. 
 parMergesort :: (NFData a, Ord a) => [a] -> Int -> Par [a]
 parMergesort x depth 
-  | depth > 4 = return (mergesort x)
+  | depth > 8 = return (mergesort x)
   | l > 1 = do 
-    i <- myspawn (parMergesort x1 (depth+1))
-    j <- myspawn (parMergesort x2 (depth+1))
+    i <- spawn (parMergesort x1 (depth+1))
+    j <- spawn (parMergesort x2 (depth+1))
     (parmerge i j)
   | otherwise = do return x
     where l = length x
           (x1, x2) = splitAt (quot l 2) x
 
 
+-- parmerge 
+-- Waits on two IVar's with lists and then merges them
 parmerge :: Ord a => IVar [a] -> IVar [a] -> Par [a]
 parmerge a b = do
     a' <- get a
     b' <- get b
     return (merge (a',b'))
 
-
+-- monadMerge
+-- Sorts a list with mergesort using the Par Monad
 monadMerge :: (NFData a, Ord a) => [a] -> [a]
 monadMerge l = runPar $ parMergesort l 0
 
 -- With Strategies
--- This solution isn't working.
 
+-- stratMerge
+-- Sorts a list with mergesort using Strategies
 stratMerge :: Ord a => [a] -> [a]
-stratMerge l = mergesort l `using` mergeStrat rseq
+stratMerge l = mergesort l `using` mergeStrat 8 
 
-mergeStrat :: Strategy a -> Strategy [a]
-mergeStrat strat = evalMerge (rparWith strat)
+mergeStrat :: Ord a =>  Integer -> Strategy [a]
+mergeStrat threshold = evalMerge threshold
 
-evalMerge :: Strategy a -> Strategy [a]
+evalMerge :: Ord a =>  Integer -> Strategy [a]
 evalMerge  _ [] = return []
-evalMerge strat (x:xs) = do
-    y <- rparWith strat x
-    ys <- evalMerge strat xs
-    return (y:ys)
+evalMerge  _ [x] = return [x]
+evalMerge t x | (t <= 0) = do -- after threshold
+     let split = (splitAt (quot (length x) 2) x)
+     let l1 = rseq (evalMerge 0 (fst split))
+     let l2 = rseq (evalMerge 0 (snd split))
+     l1' <- join l1
+     l2' <- join l2
+     return (merge (l1', l2'))
+                   | otherwise  = do  -- before threshold
+     let split = (splitAt (quot (length x) 2) x)
+     let l1 = rpar (evalMerge (t-1) (fst split))
+     let l2 = rpar (evalMerge (t-1) (snd split))
+     l1' <- join l1
+     l2' <- join l2
+     return (merge (l1', l2'))
 

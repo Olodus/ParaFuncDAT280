@@ -1,9 +1,9 @@
 module Main where
 
-import Solution1
+import LabA24
 import System.Random
-import Given
 import Criterion.Main
+
 
 
 main = do
@@ -18,7 +18,6 @@ main = do
   defaultMain [
     bgroup "mergesort" [ bench "sequential" $ whnf length (mergesort rs)
                        , bench "Par Monad"  $ whnf length (monadMerge rs)
-                       , bench "Eval Monad" $ whnf length (mergesort2 rs)
                        , bench "Strategies" $ whnf length (stratMerge rs)
                        ]
     ]

@@ -1,31 +1,17 @@
 Assignment 1
 ---------------
 We only parallelised the map function in jackknife. We could have parallelised resamples as well to get even further performance.
-We also probably could have optimised some of the garbage collection. See comments in source code Solution.hs for further explaination.
 
 
 Assignment 2
 ---------------
-We were not able to solve this assignment.
-We hope you can help us understand where we go wrong.
-
-
-Solution using Par Monad
-==============
-We spawn new children computations, each time we split the list. For some reason this forked work takes a very long time to execute. In threadscope we can see that each processor does some work at some time, but there are huge breaks in between. We are guessing that the processes have to wait too often for another process to finish. Because of this, we try adding granularity to the amount of forked work, but we couldn't see any noticable difference in execution time.
-
-
-Solution using Strategies
-==============
-We must have misunderstood or we get lost inside how our lazy eval tree looks. We think it looks like this:
- [ merge ( _ , _ ) , merge ( _ , _ ) , .... ]
-           ^
-          [ merge ( _ , _ ) , ... ]
-                    ^ finally
-                   [a]
-
-Because of this we thought we could go recursively through the list and add parallelism with rparWith. However if this is not the case, then we must have misunderstood. 
-
+We solved this assignment using the Par Monad and Strategies.
+We had a lot of trouble with this assignment.
+First of all we mistakenly did included the print of the solution when we looked at the Threadscope view. 
+This made us very confused over why it took so much time and why it stopped execution in the middle. 
+Furthermore the amount of GC made it hard for us to realize from the picture what was going on and we instead thought we had done something completly wrong. 
+What made this extra hard for us to realize was also that the code for some reason didn't execute in parallel at all on one of our computers. 
+It wasn't until we got help from a TA that we realized what was happening.
 
 
 
