@@ -3,7 +3,7 @@ module Main where
 import Solution1
 import System.Random
 import Given
---main = print (stratJackknife (sum) [1..550])
+import Criterion.Main
 
 
 main = do
@@ -13,6 +13,11 @@ main = do
 
   let rs = crud xs ++ ys
   --print (stratJackknife (sum) rs)
-  print $ stratMerge rs
+  --print $ length (monadMerge rs)
 
+  defaultMain [
+    bgroup "mergesort" [ bench "sequential" $ whnf mergesort rs
+                       , bench "Par Monad"  $ whnf monadMerge rs
+                       ]
+    ]
 

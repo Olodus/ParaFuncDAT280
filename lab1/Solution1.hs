@@ -122,6 +122,43 @@ merge ((x:xs), (y:ys))
   | x <= y = (x:merge (xs, (y:ys)))
   | x >  y = (y:merge ((x:xs), ys))
 
+
+-- Sequential mergesort using Merger data type
+
+-- Data type describing a mergesort tree
+data Merger a
+    = Split (Merger a,Merger a)
+    | Ordered [a] 
+    | End a
+
+seqsplit :: [a] -> ([a],[a])
+seqsplit xs = splitAt (quot l 2) xs
+    where l = length xs
+
+
+fullysplit :: [a] -> Merger a
+fullysplit [] = error "Can't split empty list"
+fullysplit xs | l > 1 = Split (fullysplit (fst s), fullysplit (snd s))
+            | otherwise = End (head xs)
+              where s = seqsplit xs
+                    l = length xs
+
+ms :: Ord a => Merger a -> Merger a -> Merger a
+ms (Split (x,y)) a = ms (ms x y) a
+ms a (Split (x,y)) = ms (ms x y) a
+ms (End x) a = ms (Ordered [x]) a
+ms a (End x) = ms (Ordered [x]) a
+ms (Ordered xs) (Ordered ys) = Ordered (merge (xs, ys))
+
+mergermerge :: Ord a => Merger a -> [a]
+mergermerge (End x) = [x]
+mergermerge (Ordered xs) = xs
+mergermerge (Split (x, y)) = mergermerge (ms x y)
+
+-- Sequential mergesort using Mergers
+mergersort :: Ord a => [a] -> [a]
+mergersort xs = mergermerge $ fullysplit xs
+
 -- With Par Monad
 -- This solution isn't working.
 
@@ -129,10 +166,10 @@ merge ((x:xs), (y:ys))
 -- Forks for everytime mergesort splits the list. 
 parMergesort :: (NFData a, Ord a) => [a] -> Int -> Par [a]
 parMergesort x depth 
-  | depth > 4 = return (mergesort x)
+  | depth > 8 = return (mergesort x)
   | l > 1 = do 
-    i <- myspawn (parMergesort x1 (depth+1))
-    j <- myspawn (parMergesort x2 (depth+1))
+    i <- spawn (parMergesort x1 (depth+1))
+    j <- spawn (parMergesort x2 (depth+1))
     (parmerge i j)
   | otherwise = do return x
     where l = length x
@@ -165,3 +202,55 @@ evalMerge strat (x:xs) = do
     ys <- evalMerge strat xs
     return (y:ys)
 
+-- With Producer-Consumer approch
+{--
+data IList a
+  = Nil
+  | Cons a (IVar (IList a))
+
+type Stream a = IVar (IList a)
+
+streamSplit :: NFData a => [a] -> Par (Stream a)
+streamSplit xs = do 
+    var <- new
+    fork $ split xs var
+    return var
+  where 
+    split [] var = put var Nil
+    split (x:xs) var = do
+        tail <- new
+        put var (Cons x tail)
+
+streamMerge :: Stream a -> Par a
+streamMerge strm = do
+    ilst <- get strm
+    case ilst of
+      Nil -> return 
+      --}
+
+
+divConq :: (NFData prob, NFData sol) => 
+                          (prob -> Bool) -> 
+                          (prob -> [prob]) -> 
+                          ([sol] -> sol) -> 
+                          (prob -> sol) ->
+                          prob -> Par sol
+divConq ndiv split mergec bc xs = go xs
+  where 
+      go xs 
+        | ndiv xs = return (bc xs)
+        | otherwise = do 
+            sols <- parMapM go (split xs)
+            return (mergec sols)
+
+mergeSortCool :: (NFData a, Ord a) => [a] -> [a]
+mergeSortCool xs = runPar $ divConq (\xs -> length xs < 2) split mergec id xs
+    where split xs = let (a, b) = splitAt (length xs `div` 2) xs
+                      in [a, b]
+          mergec [] = []
+          mergec [as] = as 
+          mergec (as:bs:[]) = mergec2 as bs
+          mergec2 [] bs = bs
+          mergec2 as [] = as
+          mergec2 (a:as) (b:bs) | a <= b = a:mergec2 as (b:bs)
+                                | a >  b = b:mergec2 (a:as) bs
