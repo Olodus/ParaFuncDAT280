@@ -976,13 +976,13 @@ static void futrts_cli_entry_main(struct futhark_context *ctx)
 {
     int64_t t_start, t_end;
     int time_runs;
-    int32_t result_3369;
+    int32_t result_3380;
     
     if (perform_warmup) {
         time_runs = 0;
         assert(futhark_context_sync(ctx) == 0);
         t_start = get_wall_time();
-        assert(futhark_main(ctx, &result_3369) == 0);
+        assert(futhark_main(ctx, &result_3380) == 0);
         assert(futhark_context_sync(ctx) == 0);
         t_end = get_wall_time();
         
@@ -997,7 +997,7 @@ static void futrts_cli_entry_main(struct futhark_context *ctx)
     for (int run = 0; run < num_runs; run++) {
         assert(futhark_context_sync(ctx) == 0);
         t_start = get_wall_time();
-        assert(futhark_main(ctx, &result_3369) == 0);
+        assert(futhark_main(ctx, &result_3380) == 0);
         assert(futhark_context_sync(ctx) == 0);
         t_end = get_wall_time();
         
@@ -1009,7 +1009,7 @@ static void futrts_cli_entry_main(struct futhark_context *ctx)
             ;
         }
     }
-    write_scalar(stdout, binary_output, &i32, &result_3369);
+    write_scalar(stdout, binary_output, &i32, &result_3380);
     printf("\n");
     ;
 }
@@ -1074,9 +1074,9 @@ int main(int argc, char **argv)
 #include <ctype.h>
 #include <errno.h>
 #include <assert.h>
-static int32_t static_array_realtype_3366[14] = {23, 45, -23, 44, 23, 54, 23,
+static int32_t static_array_realtype_3377[14] = {23, 45, -23, 44, 23, 54, 23,
                                                  12, 34, 54, 7, 2, 4, 67};
-static int32_t static_array_realtype_3367[14] = {-2, 3, 4, 57, 34, 2, 5, 56, 56,
+static int32_t static_array_realtype_3378[14] = {-2, 3, 4, 57, 34, 2, 5, 56, 56,
                                                  3, 3, 5, 77, 89};
 struct memblock {
     int *references;
@@ -1111,8 +1111,8 @@ struct futhark_context {
     int debugging;
     int64_t peak_mem_usage_default;
     int64_t cur_mem_usage_default;
-    struct memblock static_array_3362;
-    struct memblock static_array_3363;
+    struct memblock static_array_3373;
+    struct memblock static_array_3374;
 } ;
 struct futhark_context *futhark_context_new(struct futhark_context_config *cfg)
 {
@@ -1124,11 +1124,11 @@ struct futhark_context *futhark_context_new(struct futhark_context_config *cfg)
     ctx->debugging = cfg->debugging;
     ctx->peak_mem_usage_default = 0;
     ctx->cur_mem_usage_default = 0;
-    ctx->static_array_3362 = (struct memblock) {NULL,
-                                                (char *) static_array_realtype_3366,
+    ctx->static_array_3373 = (struct memblock) {NULL,
+                                                (char *) static_array_realtype_3377,
                                                 0};
-    ctx->static_array_3363 = (struct memblock) {NULL,
-                                                (char *) static_array_realtype_3367,
+    ctx->static_array_3374 = (struct memblock) {NULL,
+                                                (char *) static_array_realtype_3378,
                                                 0};
     return ctx;
 }
@@ -2118,72 +2118,80 @@ static inline double futrts_from_bits64(int64_t x)
 }
 static struct futrts_int32_t futrts_main(struct futhark_context *ctx)
 {
-    int32_t scalar_out_3361;
-    struct memblock mem_3357;
+    int32_t scalar_out_3372;
+    struct memblock mem_3368;
     
-    mem_3357.references = NULL;
-    memblock_alloc(ctx, &mem_3357, 56, "mem_3357");
+    mem_3368.references = NULL;
+    memblock_alloc(ctx, &mem_3368, 56, "mem_3368");
     
-    struct memblock static_array_3362 = ctx->static_array_3362;
+    struct memblock static_array_3373 = ctx->static_array_3373;
     
-    memmove(mem_3357.mem + 0, static_array_3362.mem + 0, 14 * sizeof(int32_t));
+    memmove(mem_3368.mem + 0, static_array_3373.mem + 0, 14 * sizeof(int32_t));
     
-    struct memblock mem_3360;
+    struct memblock mem_3371;
     
-    mem_3360.references = NULL;
-    memblock_alloc(ctx, &mem_3360, 56, "mem_3360");
+    mem_3371.references = NULL;
+    memblock_alloc(ctx, &mem_3371, 56, "mem_3371");
     
-    struct memblock static_array_3363 = ctx->static_array_3363;
+    struct memblock static_array_3374 = ctx->static_array_3374;
     
-    memmove(mem_3360.mem + 0, static_array_3363.mem + 0, 14 * sizeof(int32_t));
+    memmove(mem_3371.mem + 0, static_array_3374.mem + 0, 14 * sizeof(int32_t));
     
-    int32_t res_3336;
-    int32_t acc_3352 = 0;
+    int32_t res_3345;
+    int32_t acc_3363 = 0;
     
-    for (int32_t i_3351 = 0; i_3351 < 14; i_3351++) {
-        int32_t x_3341 = *(int32_t *) &mem_3357.mem[i_3351 * 4];
-        int32_t x_3342 = *(int32_t *) &mem_3360.mem[i_3351 * 4];
-        char cond_3343 = slt32(x_3342, x_3341);
-        int32_t res_3344;
+    for (int32_t i_3362 = 0; i_3362 < 14; i_3362++) {
+        int32_t x_3351 = *(int32_t *) &mem_3368.mem[i_3362 * 4];
+        int32_t x_3352 = *(int32_t *) &mem_3371.mem[i_3362 * 4];
+        char cond_3353 = slt32(x_3352, x_3351);
+        int32_t res_3354;
         
-        if (cond_3343) {
-            res_3344 = x_3341;
+        if (cond_3353) {
+            res_3354 = x_3351;
         } else {
-            res_3344 = x_3342;
+            res_3354 = x_3352;
         }
         
-        char cond_3345 = slt32(x_3341, x_3342);
-        int32_t res_3346;
+        char cond_3355 = slt32(x_3351, x_3352);
+        int32_t res_3356;
         
-        if (cond_3345) {
-            res_3346 = x_3341;
+        if (cond_3355) {
+            res_3356 = x_3351;
         } else {
-            res_3346 = x_3342;
+            res_3356 = x_3352;
         }
         
-        int32_t res_3347 = res_3344 - res_3346;
-        int32_t res_3348 = acc_3352 + res_3347;
-        int32_t acc_tmp_3364 = res_3348;
+        int32_t res_3357 = res_3354 - res_3356;
+        char cond_3358 = slt32(res_3357, acc_3363);
+        int32_t res_3359;
         
-        acc_3352 = acc_tmp_3364;
+        if (cond_3358) {
+            res_3359 = acc_3363;
+        } else {
+            res_3359 = res_3357;
+        }
+        
+        int32_t acc_tmp_3375 = res_3359;
+        
+        acc_3363 = acc_tmp_3375;
     }
-    res_3336 = acc_3352;
-    scalar_out_3361 = res_3336;
+    res_3345 = acc_3363;
+    scalar_out_3372 = res_3345;
     
-    struct futrts_int32_t retval_3365;
+    struct futrts_int32_t retval_3376;
     
-    retval_3365.v0 = scalar_out_3361;
-    memblock_unref(ctx, &mem_3357, "mem_3357");
-    memblock_unref(ctx, &mem_3360, "mem_3360");
-    return retval_3365;
+    retval_3376.v0 = scalar_out_3372;
+    memblock_unref(ctx, &mem_3368, "mem_3368");
+    memblock_unref(ctx, &mem_3371, "mem_3371");
+    return retval_3376;
 }
 int futhark_main(struct futhark_context *ctx, int32_t *out0)
 {
-    int32_t scalar_out_3361;
-    struct futrts_int32_t ret_3368;
+    int32_t scalar_out_3372;
+    struct futrts_int32_t ret_3379;
     
-    ret_3368 = futrts_main(ctx);
-    scalar_out_3361 = ret_3368.v0;
-    *out0 = scalar_out_3361;
+    ret_3379 = futrts_main(ctx);
+    scalar_out_3372 = ret_3379.v0;
+    *out0 = scalar_out_3372;
     return 0;
 }

@@ -11,7 +11,7 @@ let min (x: i32) (y: i32): i32 =
 
 let process (s1: []i32) (s2: []i32): i32 =
     let z = zip s1 s2
-    in reduce (+) 0 (map (\(x, y) -> (max x y) - (min x y) ) z)
+    in reduce (max) 0 (map (\(x, y) -> (max x y) - (min x y) ) z)
     
 
 let main (): i32 = process s1 s2
