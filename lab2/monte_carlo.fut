@@ -5,15 +5,21 @@ import "/futlib/sobol"
 
 -- Exercise 2.1-2.2
 let inside (x: f32, y: f32): f32 = 
-    let r = ((x-1f32)**2f32) + ((y-1f32)**2f32) 
-    let b = r <= 1f32
-    in if b then 1f32 else 0f32
+    --let r = ((x-1f32)**2f32) + ((y-1f32)**2f32) 
+    --let b = r <= 1f32
+    --in if b then 1f32 else 0f32
+    if ((x-1f32)**2f32) + ((y-1f32)**2f32) <= 1f32
+        then 1f32 else 0f32
+
  
 let estimate_pi [n] (x: [n]f32) (y: []f32): f32 = 
-    let c = zip x y
-    let r = map inside c
-    let s = reduce (+) 0f32 r
-    in (s/(r32 n)) * 4f32
+    --let c = zip x y
+    --let r = map inside c
+    --let s = reduce (+) 0f32 r
+    --in (s/(r32 n)) * 4f32
+    (4f32*(reduce (+) 0f32 
+        (map (inside) 
+            (zip x y)))) / (r32 n)
 
 
 
@@ -26,10 +32,13 @@ let f (x:f32, y:f32): f32 =
     2.0f32*x*x*x*x*x*y*y*y*y*y + 250f32
 
 let mc_integration [n] (x: [n]f32) (y: []f32): f32 = 
-    let c = zip x y
-    let r = map f c
-    let s = reduce (+) 0f32 r
-    in (4f32/(r32 n))*s
+    --let c = zip x y
+    --let r = map f c
+    --let s = reduce (+) 0f32 r
+    --in (4f32/(r32 n))*s
+    (4f32 / (r32 n)) * (reduce (+) 0f32 
+        (map (f) 
+            (zip x y)))
 
 
 

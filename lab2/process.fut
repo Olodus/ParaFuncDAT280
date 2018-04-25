@@ -12,20 +12,21 @@ let min (x: i32) (y: i32): i32 =
     else y
 
 let process (s1: []i32) (s2: []i32): i32 =
-    let z = zip s1 s2
-    in reduce (max) 0 (map (\(x, y) -> (max x y) - (min x y) ) z)
-
+    reduce (max) 0 (map (\(x, y) -> (max x y) - (min x y) ) (zip s1 s2))
 
 
     
-let max_with_index (x: i32, z: i32) (y: i32, v: i32): (i32, i32) =
-    if x > y then (x, z)
-    else (y, v)
+--let max_with_index (x: i32, z: i32) (y: i32, v: i32): (i32, i32) =
+--    if x > y then (x, z)
+--    else (y, v)
 
-let process_idx (s1: []i32) (s2: []i32): (i32, i32) =  
-    let z = zip s1 s2 (iota (length s1))
-    let f = (map (\(x, y, v) -> (((max x y) - (min x y)), v)) z)
-    in reduce (max_with_index) (0,0) f
+let process_idx [n] (s1: [n]i32) (s2: []i32): (i32, i32) =  
+    --let z = zip s1 s2 (iota (length s1))
+    --let f = (map (\(x, y, v) -> (((max x y) - (min x y)), v)) z)
+    --in reduce (max_with_index) (0,0) f
+    reduce (\(x,i1) (y,i2) -> if x > y then (x,i1) else (y,i2)) (0,0)
+        (map (\(x, y, v) -> (((max x y) - (min x y)), v))
+            (zip s1 s2 (iota n)))
 
 -- run exercise 1.2
 -- let main (x: []i32) (y: []i32): i32 = process  x y
@@ -42,9 +43,9 @@ let process_idx (s1: []i32) (s2: []i32): (i32, i32) =
 -- Exercise 1.5
 
 
-let segscan [n] i32 (op: i32 -> i32 -> i32) (ne: i32) (arr: [n](i32, bool)): [n]i32 =
-    let r = (\ (o, (aggr, b1), (x, b2)) -> if b2 then (x, b2) else ((o aggr x), b2) )
-    in scan r (op, (0, false)) (zip arr op)
+--let segscan [n] i32 (op: i32 -> i32 -> i32) (ne: i32) (arr: [n](i32, bool)): [n]i32 =
+--    let r = (\ (o, (aggr, b1), (x, b2)) -> if b2 then (x, b2) else ((o aggr x), b2) )
+--    in scan r (op, (0, false)) (zip arr op)
     
 
 
