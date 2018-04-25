@@ -52,16 +52,21 @@ let segscan [n] 't (op: t -> t -> t) (ne: t) (arr: [n](t, bool)): [n]t =
     --    let f = f1 || f2
     --    let 
     --let t = (\((aggr, b1), (x, b2)) -> if 
-    let (r, _) = unzip (scan (neuelem op) (ne, true) arr)
+    let (r, _) = unzip (scan (neuelem op) (ne, false) arr)
     in r
 
 -- test segscan
-let main : []i32 = segscan (+) (0) [(1,false),(2,false),(3,true),(4,false)]
+-- let main : []i32 = segscan (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false)]
 -- result [1, 3, 3, 7]
 
---let segreduce [n] ’t (op: t -> t -> t) (ne: t)
---                     (arr: [n](t, bool)): []t =
---    let s = segscan op ne arr
---    scatter unzip (scan (neuelem op) (ne, false) arr)
---    length (filter (\(x, b) -> b) (scan (neuelem op) (ne, false) arr))
+let segreduce [n] 't (op: t -> t -> t) (ne: t)
+                     (arr: [n](t, bool)): []t =
+    let (r, s) = unzip (map (\(x, b) -> if b then (x,1) else (x,0)) 
+                            (scan (neuelem op) (ne, false) arr))
+    let i = (scan (\i1 i2 -> i1+i2) 0 s)
+    in scatter (replicate ((reduce (+) 0 s)+1) ne) (i) (r)
+
+-- test segreduce
+let main : []i32 = segreduce (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false)]
+-- result [3, 12]
 
