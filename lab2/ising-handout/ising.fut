@@ -25,15 +25,28 @@ module rand_i8 = uniform_int_distribution i8 rng_engine
 
 let rand = rand_f32.rand (0f32, 1f32)
 
+module dist = uniform_real_distribution f32 minstd_rand
+
 -- Create a new grid of a given size.  Also produce an identically
 -- sized array of RNG states.
 entry random_grid (seed: i32) (w: i32) (h: i32)
                 : ([w][h]rng_engine.rng, [w][h]spin) =
-    let ra = rand_i8.rand (0i8, 1i8)
 
-    let grid = map2 (\ (x, y) -> if (rand_i8.rand (0i8, 1i8)) == 1i8 then -1 else 1 ) [w][h]
-    --let grid = map2 (\ (x, y) -> let (_,r) = (rand_i8.rand (0i8, 1i8)) in if r == 1i8 then -1 else 1 ) [w][h]
-    in (grid, grid)
+    let rng = rng_engine.rng_from_seed [seed]
+    --let (rng, x) = rand_i8.rand (0i8, 1i8) rng
+    --let b = if x == 1i8 then 1 else 0
+    
+    let spin_grid = iota (w*h)
+    let rng_grid = replicate (w*h) rng
+
+    let (r_grid, s_grid) = loop (spin_grid, rng_grid, rng) for i < (w*h) do
+        let (r,v) = (rand_i8.rand (0i8, 1i8) rng)
+        let spin_grid[i] = if v == 1i8 then 1 else -1 
+        let rng_grid[i] = r
+        let rng = r
+        in (rng_grid, spin_grid)
+
+    in (r_grid, s_grid)
 
 
 -- Compute $\Delta_e$ for each spin in the grid, using wraparound at
