@@ -6,10 +6,15 @@ type spin = i8
 
 import "/futlib/random"
 
+import "/futlib/math"
+
 -- Pick an RNG engine and define random distributions for specific types.
 module rng_engine = minstd_rand
 module rand_f32 = uniform_real_distribution f32 rng_engine
 module rand_i8 = uniform_int_distribution i8 rng_engine
+
+-- My added math module
+-- module math_f32: (real with t = f32)
 
 -- We can create an few RNG state with 'rng_engine.rng_from_seed [x]',
 -- where 'x' is some seed.  We can split one RNG state into many with
@@ -52,8 +57,13 @@ entry random_grid (seed: i32) (w: i32) (h: i32)
 
 -- Compute $\Delta_e$ for each spin in the grid, using wraparound at
 -- the edges.
---entry deltas [w][h] (spins: [w][h]spin): [w][h]i8 =
---  ...
+entry deltas [w][h] (spins: [w][h]spin): [w][h]i8 =
+    map5 (map5 (\c r l u d -> 2i8*c*(u+d+l+r))) 
+                                    (spins) 
+                                    (rotate@0 (1) spins) 
+                                    (rotate@0 (-1) spins)
+                                    (rotate@1 (1) spins)
+                                    (rotate@1 (-1) spins)
 
 -- The sum of all deltas of a grid.  The result is a measure of how
 -- ordered the grid is.
@@ -61,10 +71,16 @@ entry delta_sum [w][h] (spins: [w][h]spin): i32 =
    deltas spins |> flatten |> map1 i32.i8 |> reduce (+) 0
 
 -- Take one step in the Ising 2D simulation.
---entry step [w][h] (abs_temp: f32) (samplerate: f32)
---                  (rngs: [w][h]rng_engine.rng) (spins: [w][h]spin)
---                : ([w][h]rng_engine.rng, [w][h]spin) =
---  ...
+entry step [w][h] (abs_temp: f32) (samplerate: f32)
+                  (rngs: [w][h]rng_engine.rng) (spins: [w][h]spin)
+                : ([w][h]rng_engine.rng, [w][h]spin) =
+    let ds = deltas spins
+    let s = map (\delta rand c -> let (r, b) = (rand_f32.rand (0f32, 1f32) rand)
+                        in if (b < samplerate) &
+                            ((i8.<= (delta) (i8.negate delta)) | (b < f32.exp (f32.i8(-delta)/abs_temp)))
+                            then (r, -c) else (r, c)) (zip ds rngs spins)
+    let (_, nr, sg) = unzip s
+    in (nr, sg)
 
 import "/futlib/colour"
 
