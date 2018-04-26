@@ -36,17 +36,18 @@ entry random_grid (seed: i32) (w: i32) (h: i32)
     --let (rng, x) = rand_i8.rand (0i8, 1i8) rng
     --let b = if x == 1i8 then 1 else 0
     
-    let spin_grid = iota (w*h)
+    let spin_grid = replicate (w*h) 1i8
     let rng_grid = replicate (w*h) rng
+    let test = zip spin_grid rng_grid
 
-    let (r_grid, s_grid) = loop (spin_grid, rng_grid, rng) for i < (w*h) do
+    let (_, newtest) = loop (rng, test) for i < (w*h) do
         let (r,v) = (rand_i8.rand (0i8, 1i8) rng)
-        let spin_grid[i] = if v == 1i8 then 1 else -1 
-        let rng_grid[i] = r
-        let rng = r
-        in (rng_grid, spin_grid)
-
-    in (r_grid, s_grid)
+        let test[i] = (if v == 1i8 then 1i8 else -1i8, r) 
+--        let rng_grid[i] = r
+--        let rng = r
+        in (r, test)
+    let (s_grid, r_grid) = unzip newtest
+    in (reshape (w, h) r_grid, reshape (w, h) s_grid)
 
 
 -- Compute $\Delta_e$ for each spin in the grid, using wraparound at
