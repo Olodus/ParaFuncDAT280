@@ -70,17 +70,25 @@ entry deltas [w][h] (spins: [w][h]spin): [w][h]i8 =
 entry delta_sum [w][h] (spins: [w][h]spin): i32 =
    deltas spins |> flatten |> map1 i32.i8 |> reduce (+) 0
 
+let t (a: i8) (b: i8) : bool =
+    a <= b
+
+let calc_c (samplerate: f32) (abs_temp: f32) 
+            (delta: i8) (rand: rng_engine.rng) (c: i8): (rng_engine.rng, spin) =
+    let (r, b) = (rand_f32.rand (0f32, 1f32) rand)
+    in if (b < samplerate) &&
+        ((t (delta) (i8.negate delta)) || 
+        (b < f32.exp (f32.i8(i8.negate delta)/abs_temp)))
+        then (r, -c) else (r, c)
+
+
 -- Take one step in the Ising 2D simulation.
 entry step [w][h] (abs_temp: f32) (samplerate: f32)
                   (rngs: [w][h]rng_engine.rng) (spins: [w][h]spin)
                 : ([w][h]rng_engine.rng, [w][h]spin) =
     let ds = deltas spins
-    let s = map (\delta rand c -> let (r, b) = (rand_f32.rand (0f32, 1f32) rand)
-                        in if (b < samplerate) &
-                            ((i8.<= (delta) (i8.negate delta)) | (b < f32.exp (f32.i8(-delta)/abs_temp)))
-                            then (r, -c) else (r, c)) (zip ds rngs spins)
-    let (_, nr, sg) = unzip s
-    in (nr, sg)
+    let (nr, nc) = unzip (map3 (map3 (calc_c samplerate abs_temp)) (ds) (rngs) (spins))
+    in (nr, nc)
 
 import "/futlib/colour"
 
