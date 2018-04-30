@@ -47,24 +47,16 @@ let neuelem 't (op: t -> t -> t) (v1: t, f1: bool) (v2: t, f2: bool): (t, bool) 
     in if f2 then (v2, f) else (op v1 v2, f)
 
 let segscan [n] 't (op: t -> t -> t) (ne: t) (arr: [n](t, bool)): [n]t =
-    --let r = (\((aggr, b1), (x, b2)) -> if b2 then (x, b1 || b2) else ((o aggr x), b1 || b2))
-    --let f = (\((aggr, f1), (x, f2)) -> 
-    --    let f = f1 || f2
-    --    let 
-    --let t = (\((aggr, b1), (x, b2)) -> if 
     let (r, _) = unzip (scan (neuelem op) (ne, false) arr)
     in r
 
 -- test segscan
---let main [n] 't (arr: [n](t, bool)): [n]t = segscan (+) (0) arr
---let main (arr: [](i32, bool)): []i32 = segscan (+) (0) arr
+--let main (arr1: []i32) (arr2: []bool): []i32 = segscan (+) (0) (zip arr1 arr2)
 --let main : []i32 = segscan (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false)]
 -- result [1, 3, 3, 7]
 
 -- test scan
 --let main (x: []i32): []i32 = scan (+) (0) x
-
-
 
 let segment 't (op: t -> t -> t) (v1: t, _: bool) (v2: t, f2: bool): (t, bool) =
     if f2 then (v2, f2) else (op v1 v2, f2)
@@ -73,14 +65,14 @@ let segment 't (op: t -> t -> t) (v1: t, _: bool) (v2: t, f2: bool): (t, bool) =
 let segreduce [n] 't (op: t -> t -> t) (ne: t)
                      (arr: [n](t, bool)): []t =
     let (r, s) = unzip (scan (segment op) (ne, false) arr)
-    let f = filter (\ (_,b) -> b == true) (zip r ((tail s) ++ [false]))
-    let (r2, _) = unzip f
+    let (r2, _) = unzip (filter (\ (_,b) -> b == true) (zip r ((tail s) ++ [false])))
     in r2 ++ [(last r)]
 
 
 -- test segreduce
---let main : []i32 = segreducet (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false),(3,true),(4,false),(5,false)]
--- result [3, 12]
+--let main : []i32 = segreduce (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false),(3,true),(4,false),(5,false)]
+-- result [3, 12, 12]
+let main (arr1: []i32) (arr2: []bool): []i32 = segreduce (+) (0) (zip arr1 arr2)
 
 
-let main (arr: [](i32, bool)): []i32 = segreduce (+) (0) arr
+
