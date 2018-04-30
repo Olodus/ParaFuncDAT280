@@ -56,17 +56,37 @@ let segscan [n] 't (op: t -> t -> t) (ne: t) (arr: [n](t, bool)): [n]t =
     in r
 
 -- test segscan
--- let main : []i32 = segscan (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false)]
+--let main [n] 't (arr: [n](t, bool)): [n]t = segscan (+) (0) arr
+
+--let main (arr: [](i32, bool)): []i32 = segscan (+) (0,false) arr
+--let main : []i32 = segscan (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false)]
 -- result [1, 3, 3, 7]
 
-let segreduce [n] 't (op: t -> t -> t) (ne: t)
+-- test scan
+--let main (x: []i32): []i32 = scan (+) (0) x
+
+--let ne = 0
+--let arr = [(1,false),(2,false),(3,true),(4,false),(5,false)]
+--let (r, s) = unzip (map (\(x, b) -> if b then (x,1) else (x,0))
+--                                                 (scan (neuelem +) (ne, false) arr))
+
+--let main (): ([]i32, []i32) = (r,s)
+
+
+
+let segment 't (op: t -> t -> t) (v1: t, _: bool) (v2: t, f2: bool): (t, bool) =
+    if f2 then (v2, f2) else (op v1 v2, f2)
+
+
+let segreducet [n] 't (op: t -> t -> t) (ne: t)
                      (arr: [n](t, bool)): []t =
-    let (r, s) = unzip (map (\(x, b) -> if b then (x,1) else (x,0)) 
-                            (scan (neuelem op) (ne, false) arr))
-    let i = (scan (\i1 i2 -> i1+i2) 0 s)
-    in scatter (replicate ((reduce (+) 0 s)+1) ne) (i) (r)
+    let (r, s) = unzip (scan (segment op) (ne, false) arr)
+    let f = filter (\ (_,b) -> b == true) (zip r ((tail s) ++ [false]))
+    let (r2, _) = unzip f
+    in r2 ++ [(last r)]
+
 
 -- test segreduce
-let main : []i32 = segreduce (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false)]
+let main : []i32 = segreducet (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false),(3,true),(4,false),(5,false)]
 -- result [3, 12]
 
