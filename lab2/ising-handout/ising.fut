@@ -38,8 +38,6 @@ entry random_grid (seed: i32) (w: i32) (h: i32)
                 : ([w][h]rng_engine.rng, [w][h]spin) =
 
     let rng = rng_engine.rng_from_seed [seed]
-    --let (rng, x) = rand_i8.rand (0i8, 1i8) rng
-    --let b = if x == 1i8 then 1 else 0
     
     let spin_grid = replicate (w*h) 1i8
     let rng_grid = replicate (w*h) rng
@@ -48,8 +46,6 @@ entry random_grid (seed: i32) (w: i32) (h: i32)
     let (_, newtest) = loop (rng, test) for i < (w*h) do
         let (r,v) = (rand_i8.rand (0i8, 1i8) rng)
         let test[i] = (if v == 1i8 then 1i8 else -1i8, r) 
---        let rng_grid[i] = r
---        let rng = r
         in (r, test)
     let (s_grid, r_grid) = unzip newtest
     in (reshape (w, h) r_grid, reshape (w, h) s_grid)
@@ -81,15 +77,6 @@ let calc_c (samplerate: f32) (abs_temp: f32)
         (b < f32.e ** (f32.i8(i8.negate delta)/abs_temp)))
         then (r, -c) else (r, c)
 
---let calc_c (samplerate: f32) (abs_temp: f32) 
---            (delta: i8) (rand: rng_engine.rng) (c: i8): (rng_engine.rng, spin) =
---    let (r, b) = (rand_f32.rand (0f32, 1f32) rand)
---    in if (b < samplerate) &&
---        ((t (delta) (i8.negate delta)) || 
---        (b < f32.exp (f32.i8(i8.negate delta)/abs_temp)))
---        then (r, -c) else (r, c)
-
-
 
 -- Take one step in the Ising 2D simulation.
 entry step [w][h] (abs_temp: f32) (samplerate: f32)
@@ -114,3 +101,8 @@ let main (abs_temp: f32) (samplerate: f32)
          (w: i32) (h: i32) (n: i32): [w][h]spin =
   (loop (rngs, spins) = random_grid 1337 w h for _i < n do
      step abs_temp samplerate rngs spins).2
+
+--let main : [][]spin =
+--    let rng = rng_engine.rng_from_seed [12345]
+--    let (r, s) = (random_grid 12345 2 2)
+--    in s
