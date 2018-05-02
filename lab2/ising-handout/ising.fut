@@ -78,8 +78,17 @@ let calc_c (samplerate: f32) (abs_temp: f32)
     let (r, b) = (rand_f32.rand (0f32, 1f32) rand)
     in if (b < samplerate) &&
         ((t (delta) (i8.negate delta)) || 
-        (b < f32.exp (f32.i8(i8.negate delta)/abs_temp)))
+        (b < f32.e ** (f32.i8(i8.negate delta)/abs_temp)))
         then (r, -c) else (r, c)
+
+--let calc_c (samplerate: f32) (abs_temp: f32) 
+--            (delta: i8) (rand: rng_engine.rng) (c: i8): (rng_engine.rng, spin) =
+--    let (r, b) = (rand_f32.rand (0f32, 1f32) rand)
+--    in if (b < samplerate) &&
+--        ((t (delta) (i8.negate delta)) || 
+--        (b < f32.exp (f32.i8(i8.negate delta)/abs_temp)))
+--        then (r, -c) else (r, c)
+
 
 
 -- Take one step in the Ising 2D simulation.
