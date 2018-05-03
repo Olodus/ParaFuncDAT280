@@ -28,8 +28,12 @@ let process_idx [n] (s1: [n]i32) (s2: []i32): (i32, i32) =
         (map (\(x, y, v) -> (((max x y) - (min x y)), v))
             (zip s1 s2 (iota n)))
 
+-- run exercise 1.1
+--let main : i32 = process  s1 s2
+
+
 -- run exercise 1.2
--- let main (x: []i32) (y: []i32): i32 = process  x y
+let main (x: []i32) (y: []i32): i32 = process  x y
 
 
 -- run exercise 1.3
@@ -62,6 +66,12 @@ let segment 't (op: t -> t -> t) (v1: t, _: bool) (v2: t, f2: bool): (t, bool) =
     if f2 then (v2, f2) else (op v1 v2, f2)
 
 
+--let segreduce [n] 't (op: t -> t -> t) (ne: t)
+--                     (arr: [n](t, bool)): []t =
+--    let (r, s) = unzip (scan (segment op) (ne, false) arr)
+--    let (r2, _) = unzip (filter (\ (_,b) -> b == true) (zip r (rotate@0 (1) s)))
+--    in r2
+
 let segreduce [n] 't (op: t -> t -> t) (ne: t)
                      (arr: [n](t, bool)): []t =
     let (r, s) = unzip (scan (segment op) (ne, false) arr)
@@ -70,9 +80,9 @@ let segreduce [n] 't (op: t -> t -> t) (ne: t)
 
 
 -- test segreduce
---let main : []i32 = segreduce (+) (0) [(1,false),(2,false),(3,true),(4,false),(5,false),(3,true),(4,false),(5,false)]
+--let main : []i32 = segreduce (+) (0) [(1,true),(2,false),(3,true),(4,false),(5,false),(3,true),(4,false),(5,false)]
 -- result [3, 12, 12]
-let main (arr1: []i32) (arr2: []bool): []i32 = segreduce (+) (0) (zip arr1 arr2)
+--let main (arr1: []i32) (arr2: []bool): []i32 = segreduce (+) (0) (zip arr1 arr2)
 
 
 

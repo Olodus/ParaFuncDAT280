@@ -1,4 +1,6 @@
 import "/futlib/sobol"
+import "/futlib/sobol-dir-50"
+
 
 
 
@@ -54,24 +56,20 @@ module R = S2.Reduce { type t = f64
                          let y = v[1]
                          in f64.bool(x*x+y*y < 1f64) }
 
---entry test_pi (n:i32) : f32 =
---  R.run n * 4.0 / r64(n) - 3.14
+entry test_pi (n:i32) : f64 =
+    f64.abs(R.run n * 4.0 / r64(n) - 3.14)
+
+--entry test_pi (n:i32) : bool =
+--  f64.abs(R.run n * 4.0 / r64(n) - 3.14) < 0.01
 
 
+--let main (i: []i32) : []f64 = map test_pi i
 
 
-let main (x: []f32) (y: []f32): f32 = mc_integration  R.run R.run
+--let main (x: []f32) (y: []f32): f32 = mc_integration  R.run R.run
+
+let main (x: []f32) (y: []f32): f32 = f32.abs((estimate_pi x y) - 3.14f32)
 --let main (): f32 = estimate_pi  x y
-
-
-
---let process_idx (s1: []i32) (s2: []i32): (i32, i32) =
---    let z = zip s1 s2 (iota (length s1))
---    let f = (map (\(x, y, v) -> (((max x y) - (min x y)), v)) z)
---    in reduce (max_with_index) (0,0) f
-
-
-
 
 
 
