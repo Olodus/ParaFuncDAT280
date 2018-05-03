@@ -104,4 +104,3 @@ let main (abs_temp: f32) (samplerate: f32)
   (loop (rngs, spins) = random_grid 1337 w h for _i < n do
      step abs_temp samplerate rngs spins).2
 
-
