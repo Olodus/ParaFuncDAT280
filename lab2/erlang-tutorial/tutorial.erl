@@ -2,6 +2,11 @@
 -export([seq_msort/1]).
 
 
+
+% Helper used to generate test data
+random_list(N) -> [random:uniform(1000000) || _ <- lists:seq(1,N)].
+
+
 merge([], Y) -> Y;
 merge(X, []) -> X;
 merge([X|Xs], [Y|Ys]) -> 
