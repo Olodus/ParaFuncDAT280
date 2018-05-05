@@ -7,8 +7,8 @@ defmodule NaiveParMergeSort do
         if len > 1 do
             {l1, l2} = Enum.split(x, round(len/2)) 
             Merge.merge(
-                Task.await(Task.async(GranParMergeSort, :naive_par_merge_sort, [l1])),              
-                Task.await(Task.async(GranParMergeSort, :naive_par_merge_sort, [l2])))
+                Task.await(Task.async(NaiveParMergeSort, :naive_par_merge_sort, [l1])),              
+                Task.await(Task.async(NaiveParMergeSort, :naive_par_merge_sort, [l2])))
         else
             x
         end
