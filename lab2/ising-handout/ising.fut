@@ -32,22 +32,28 @@ let rand = rand_f32.rand (0f32, 1f32)
 
 module dist = uniform_real_distribution f32 minstd_rand
 
+let rng_calc (r: rng_engine.rng): i8 = 
+    let (_, v) = rand_i8.rand (0i8, 1i8) r
+    in v
+
 -- Create a new grid of a given size.  Also produce an identically
 -- sized array of RNG states.
 entry random_grid (seed: i32) (w: i32) (h: i32)
                 : ([w][h]rng_engine.rng, [w][h]spin) =
 
-    let rng = rng_engine.rng_from_seed [seed]
-    let spin_grid = replicate (w*h) 1i8
-    let rng_grid = replicate (w*h) rng
-    let test = zip spin_grid rng_grid
+    --let rng = rng_engine.rng_from_seed [seed]
+    --let spin_grid = replicate (w*h) 1i8
+    --let rng_grid = replicate (w*h) rng
+    let rng_grid = map (\x -> rng_engine.rng_from_seed [x+seed]) (iota (w*h))
+    let spin_grid = map (\x -> if rng_calc(x) == 1i8 then 1i8 else -1i8) rng_grid
+    --let test = zip spin_grid rng_grid
 
-    let (_, newtest) = loop (rng, test) for i < (w*h) do
-        let (r,v) = (rand_i8.rand (0i8, 1i8) rng)
-        let test[i] = (if v == 1i8 then 1i8 else -1i8, r) 
-        in (r, test)
-    let (s_grid, r_grid) = unzip newtest
-    in (reshape (w, h) r_grid, reshape (w, h) s_grid)
+    --let (_, newtest) = loop (rng, test) for i < (w*h) do
+    --    let (r,v) = (rand_i8.rand (0i8, 1i8) rng)
+    --    let test[i] = (if v == 1i8 then 1i8 else -1i8, r) 
+    --    in (r, test)
+    --let (s_grid, r_grid) = unzip newtest
+    in (reshape (w, h) rng_grid, reshape (w, h) spin_grid)
 
 
 -- Compute $\Delta_e$ for each spin in the grid, using wraparound at
