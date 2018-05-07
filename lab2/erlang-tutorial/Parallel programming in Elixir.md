@@ -5,8 +5,7 @@
 
 ##Introduction
 Elixir is a functional programming language built on top of the Erlang VM.
-It's supposed to be great for developing highly concurrent, distributed and fault tolerant applications. We are masters student with emphasis on distributed systems so we were very excited to have some fun with Elixir. We decided to start out with something simple, doing parallel mergesort in Elixir. Doing the same in Erlang had shown that it was possible to get a very good speedup on mergesort. As such, we expected to see a similar speedup in Elixir, since both languages run on the same virtual machine. What we got instead, however, was quite surprising. 
-
+It's supposed to be great for developing highly concurrent, distributed and fault tolerant applications. We are masters student with emphasis on distributed systems so we were very excited to have some fun with Elixir. We decided to start out with something simple, doing parallel mergesort in Elixir. Doing the same in Erlang had shown that it was possible to get a very good speedup on mergesort. As such, we expected to see a similar speedup in Elixir, since both languages run on the same virtual machine.
 
 ##Mergesort
 For those who are not familiar with the merge sort algorithm, it´s an algorithm that sorts a list of integers by splitting up the list in half, then performs merge sort on both of the sub-lists. Once the lists have been split up until they only contain a single element. Then they are merged back together in sorted order. A visual representation of this can be seen in the following gif.
@@ -82,17 +81,17 @@ We created this parallel version of merge sort using tasks. It is almost exactly
   6         len = length(x)
   7         if len > 1 do
   8             {l1, l2} = Enum.split(x, round(len/2))
-  9             Merge.merge(
- 10                 Task.await(Task.async(NaiveParMergeSort, :naive_par_merge_sort, [l1])),                          
- 11                 Task.await(Task.async(NaiveParMergeSort, :naive_par_merge_sort, [l2])))
- 12         else
- 13             x
- 14         end
- 15     end
- 16 end
+  9             w1 = Task.async(NaiveParMergeSort, :naive_par_merge_sort, [l1])
+ 10             w2 = Task.async(NaiveParMergeSort, :naive_par_merge_sort, [l2])
+ 11             Merge.merge(
+ 12                 Task.await(w1),
+ 13                 Task.await(w2))
+ 14         else
+ 15             x
+ 16         end
+ 17     end
+ 18 end
 ```
-
-
 
 
 
@@ -118,10 +117,6 @@ benchmark takes care of running the benchmark n number of times and returns the 
 Now let's run the benchmark in iex.
 
 ```bash
-➜  erlang-tutorial git:(master) ✗ iex
-Erlang/OTP 20 [erts-9.3] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false] [dtrace]
-
-Interactive Elixir (1.6.4) - press Ctrl+C to exit (type h() ENTER for help)
 iex(1)> c("helpers.exs") 
 [Helpers]
 iex(2)> c("seq_msort.exs") 
@@ -129,16 +124,16 @@ iex(2)> c("seq_msort.exs")
 iex(3)> c("naive_par_msort.exs")
 [NaiveParMergeSort]
 iex(4)> test_data = Helpers.random_list(1000000, 200000)
-[998312, 637926, 916067, 762978, 108602, 997472, 108920, 665561, 524107, 240520,
- 744708, 598909, 990665, 74648, 106934, 16275, 474055, 311630, 501419, 101909,
- 365258, 621625, 979912, 333421, 89826, 453457, 106432, 322154, 706833, 67345,
- 990594, 819708, 215055, 700666, 252557, 554486, 554162, 885134, 747419, 891437,
- 234401, 473644, 141608, 612533, 570701, 49984, 653690, 681996, 610417, 222045,
+[381705, 231607, 570899, 273191, 596392, 938350, 138406, 224800, 675115, 653381,
+ 932585, 944682, 651997, 557857, 64047, 181843, 468684, 284822, 14658, 975491,
+ 457776, 959020, 317133, 980863, 684949, 754667, 706702, 25833, 753176, 350774,
+ 985197, 502568, 601405, 224066, 858791, 465992, 79250, 397259, 210487, 214706,
+ 362727, 895811, 206303, 502644, 962127, 939182, 612425, 666950, 575519, 197109,
  ...]
 iex(5)> Helpers.benchmark(10, SeqMergeSort, :seq_merge_sort, [test_data])
-179309.4
+173464.4
 iex(6)> Helpers.benchmark(10, NaiveParMergeSort, :naive_par_merge_sort, [test_data])
-2442086.5
+1159144.7
 ```
 
 By looking at the results we can see that something is wrong with our parallel implementation, since it takes much longer time than the sequential version.
@@ -146,8 +141,7 @@ For those who have done some parallel programming before this is probably not su
 
 
 ##Parallel mergesort with granularity using tasks
-
-
+We add granularity to our code by introducing detph parameter to our sorting function. Once a certain depth is reached we stop spawning new processes and simply run it sequentially from that point.
 
 ```elixir
   1 defmodule GranParMergeSort do
@@ -159,21 +153,56 @@ For those who have done some parallel programming before this is probably not su
   7         if len > 1 do
   8             {l1, l2} = Enum.split(x, round(len/2))
   9             if depth > 0 do
- 10                 Merge.merge(
- 11                     Task.await(Task.async(GranParMergeSort, :gran_par_merge_sort, [l1, depth - 1])),
- 12                     Task.await(Task.async(GranParMergeSort, :gran_par_merge_sort, [l2, depth - 1])))
- 13             else
- 14                     Merge.merge(gran_par_merge_sort(l1, 0), gran_par_merge_sort(l2, 0))
- 15             end
- 16         else
- 17             x
- 18         end
- 19     end
- 20 end
+ 10                 w1 = Task.async(GranParMergeSort, :gran_par_merge_sort, [l1, depth - 1])
+ 11                 w2 = Task.async(GranParMergeSort, :gran_par_merge_sort, [l2, depth - 1])
+ 12                 Merge.merge(
+ 13                     Task.await(w1),
+ 14                     Task.await(w2))
+ 15             else
+ 16                     Merge.merge(gran_par_merge_sort(l1, 0), gran_par_merge_sort(l2, 0))
+ 17             end
+ 18         else
+ 19             x
+ 20         end
+ 21     end
+ 22 end
 ```
 
+Now if we run the benchmarks once again we will get the following results.
+
+```bash
+➜  erlang-tutorial git:(master) ✗ iex
+Erlang/OTP 20 [erts-9.3] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false] [dtrace]
+
+Interactive Elixir (1.6.4) - press Ctrl+C to exit (type h() ENTER for help)
+iex(1)> c("helpers.exs") 
+[Helpers]
+iex(2)> c("seq_msort.exs") 
+[SeqMergeSort]
+iex(3)> c("naive_par_msort.exs")
+[NaiveParMergeSort]
+iex(4)> c("gran_par_msort.exs")
+[GranParMergeSort]
+iex(5)> test_data = Helpers.random_list(1000000, 200000)
+[381705, 231607, 570899, 273191, 596392, 938350, 138406, 224800, 675115, 653381,
+ 932585, 944682, 651997, 557857, 64047, 181843, 468684, 284822, 14658, 975491,
+ 457776, 959020, 317133, 980863, 684949, 754667, 706702, 25833, 753176, 350774,
+ 985197, 502568, 601405, 224066, 858791, 465992, 79250, 397259, 210487, 214706,
+ 362727, 895811, 206303, 502644, 962127, 939182, 612425, 666950, 575519, 197109,
+ ...]
+iex(6)> Helpers.benchmark(10, SeqMergeSort, :seq_merge_sort, [test_data])
+173464.4
+iex(7)> Helpers.benchmark(10, NaiveParMergeSort, :naive_par_merge_sort, [test_data])
+1159144.7
+iex(8)> Helpers.benchmark(10, GranParMergeSort, :gran_par_merge_sort, [test_data, 4])
+71399.3
+```
+
+Now we can see that we get a 2.4 times speed up on the sequential version. We played around a little bit with the granularity but ended up getting the best performance by using depth 4.
 
 ##Parallel mergesort with granularity using spawn link
+We wanted to try to implement parallel mergesort with granularity using spawn link, so we could see the benefits of what the tasks abstraction actually provides. We ended up with the following code, which has few extra lines of code. Our opinion is that the abstraction gives us a more readable code.
+
 ```elixir
   1 defmodule ErlPsort do
   2     alias SeqMergeSort, as: Merge
@@ -194,30 +223,60 @@ For those who have done some parallel programming before this is probably not su
  17                 spawn_link(ErlPsort, :erl_psort, [self(),l1,depth-1])
  18                 spawn_link(ErlPsort, :erl_psort, [self(),l2,depth-1])
  19                 receive do
- 20                   x -> h1 = x
- 21                 end
- 22                 receive do
- 23                   y -> send pid, Merge.merge(y,h1)
- 24                 end
- 25             else
- 26                 send pid, Merge.merge(Merge.seq_merge_sort(l1), Merge.seq_merge_sort(l2))
- 27             end
- 28         else
- 29             send pid, x
- 30         end
- 31     end
- 32 end
+ 20                   x ->  receive do
+ 21                             y -> send pid, Merge.merge(y,x)
+ 22                         end
+ 23                 end
+ 24             else
+ 25                 send pid, Merge.merge(Merge.seq_merge_sort(l1), Merge.seq_merge_sort(l2))
+ 26             end
+ 27         else
+ 28             send pid, x
+ 29         end
+ 30     end
+ 31 end
 ```
 
+Now if we run the final benchmark
 
+```bash
+➜  erlang-tutorial git:(master) ✗ iex
+Erlang/OTP 20 [erts-9.3] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false] [dtrace]
 
-##Our hypothesis of the problem
-We didn’t have time to investigate further on why Tasks are slowing things down as much as they do in our case. We think it has something to do with the split lists getting copied into every new process created in the Tasks. We build this hypothesis on the fact that the benchmarks  gets worse the more we increased the depth. Though some overhead is expected when spawning new processes (that is why we did a version using granularity in the first place) the amount we spawned should have nowhere near the effect it had in the results, given how light-weight processes are in the Erlang VM.  
+Interactive Elixir (1.6.4) - press Ctrl+C to exit (type h() ENTER for help)
+iex(1)> c("helpers.exs") 
+[Helpers]
+iex(2)> c("seq_msort.exs") 
+[SeqMergeSort]
+iex(3)> c("naive_par_msort.exs")
+[NaiveParMergeSort]
+iex(4)> c("gran_par_msort.exs")
+[GranParMergeSort]
+iex(5)> c("erl_psort.exs") 
+[ErlPsort]
+iex(6)> test_data = Helpers.random_list(1000000, 200000)
+[381705, 231607, 570899, 273191, 596392, 938350, 138406, 224800, 675115, 653381,
+ 932585, 944682, 651997, 557857, 64047, 181843, 468684, 284822, 14658, 975491,
+ 457776, 959020, 317133, 980863, 684949, 754667, 706702, 25833, 753176, 350774,
+ 985197, 502568, 601405, 224066, 858791, 465992, 79250, 397259, 210487, 214706,
+ 362727, 895811, 206303, 502644, 962127, 939182, 612425, 666950, 575519, 197109,
+ ...]
+iex(7)> Helpers.benchmark(10, SeqMergeSort, :seq_merge_sort, [test_data])
+173464.4
+iex(8)> Helpers.benchmark(10, NaiveParMergeSort, :naive_par_merge_sort, [test_data])
+1159144.7
+iex(9)> Helpers.benchmark(10, GranParMergeSort, :gran_par_merge_sort, [test_data, 4])
+71399.3
+iex(10)> Helpers.benchmark(10, ErlPsort, :start, [test_data, 4])
+66794.7
+```
+
+we can see that skipping the abstraction gives us only a very small speed up and it is probably not worth it to sacrifice code readability for such a small gain.
+ 
 
 ##In conclusion
-It turns out Tasks are quite dangerous to play around with. Even though they are marketed as simple abstractions on top of spawn_link it is very easy to use them in such a way that all of the potential speedup of making your code parallel disappears. 
-
-The final lesson from all this is probably to always benchmark your code properly. We would never have suspected our implementation to be faulty unless we saw the results of running it. 
+Elixir looks like a great language for doing parallel programming and having that tasks abstraction is very nice.
+Finally we reccommend to always benchmark parallel code to see that it is working properly.
 
 
 ##References
