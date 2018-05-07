@@ -2,9 +2,6 @@ import "/futlib/sobol"
 import "/futlib/sobol-dir-50"
 
 
-
-
-
 -- Exercise 2.1-2.2
 let inside (x: f32, y: f32): f32 = 
     --let r = ((x-1f32)**2f32) + ((y-1f32)**2f32) 
@@ -58,10 +55,6 @@ module R = S2.Reduce { type t = f64
 
 entry test_pi (n:i32) : f64 =
     f64.abs(R.run n * 4.0 / r64(n) - 3.14)
-
---entry test_pi (n:i32) : bool =
---  f64.abs(R.run n * 4.0 / r64(n) - 3.14) < 0.01
-
 
 --let main (i: []i32) : []f64 = map test_pi i
 
