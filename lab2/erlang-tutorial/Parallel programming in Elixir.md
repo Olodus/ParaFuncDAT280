@@ -45,7 +45,7 @@ The seq\_merge\_sort function takes care of splitting up the lists, then recursi
 
 
 
-##Naive parallel mergesort
+##Naive parallel mergesort using tasks
 There are few different ways in Elixir to run things in parallel. 
 Spawn
 Tasks
@@ -119,7 +119,7 @@ iex(6)> Helpers.benchmark(10, NaiveParMergeSort, :naive_par_merge_sort, [test_da
 ```
 
 
-##Parallel mergesort with granularity
+##Parallel mergesort with granularity using tasks
 ```
   1 defmodule GranParMergeSort do
   2     alias SeqMergeSort, as: Merge
@@ -144,6 +144,7 @@ iex(6)> Helpers.benchmark(10, NaiveParMergeSort, :naive_par_merge_sort, [test_da
 ```
 
 
+##Parallel mergesort with granularity using spawn link
 
 
 
