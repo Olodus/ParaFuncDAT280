@@ -17,7 +17,7 @@ For those who are not familiar with the merge sort algorithm, it´s an algorithm
 Here we have an implementation of a sequential mergesort. It consists of two functions merge and seq\_merge\_sort. The merge function is used to merge two ordered lists, it will be used in all of the different merge sort implementations in this tutorial. 
 The seq\_merge\_sort function takes care of splitting up the lists, then recursively calling seq_merge_sort on both of the lists before merging them back together.
 
-```
+```elixir
   1 defmodule SeqMergeSort do
   2     def merge([], y),           do: y
   3     def merge(x, []),           do: x
@@ -48,7 +48,7 @@ There are few different ways in Elixir to run things in parallel. We will be loo
 ###Spawn link
 Spawn link in Elixir works just like the Erlang spawn link function, it creates a new background process that can perform some work. Once the work is done it can be passed back as a message to the parent process. 
 
-```
+```elixir
 1 pid = spawn(Spawn2, :greet, [])
 2 send pid, {self, "Hello World!"}
 3 
@@ -63,7 +63,7 @@ In the example above it can be seen in line 1 how a new process is spawned. Line
 Elixir tasks is simply an abstraction of the spawn function in Elixir. It allows you to add parallelism to your program in a very simple way.
 We can run the following code 
 
-```
+```elixir
 1 worker = Task.async(func) 
 2 results = Task.await(worker)
 ```
@@ -73,7 +73,7 @@ and this will result in a new process being created in the background which will
 ##Naive parallel mergesort using tasks
 We created this parallel version of merge sort using tasks. It is almost exactly the same as the sequential version except that we use tasks to spawn a new process to perform the computations.
 
-```
+```elixir
   1 defmodule NaiveParMergeSort do
   2     alias SeqMergeSort, as: Merge
   3 
@@ -100,7 +100,7 @@ We created this parallel version of merge sort using tasks. It is almost exactly
 Now in order to see if we are actually getting some speedup by running things in parallel we will have to benchmark both of the implementations. We created the Helpers module that contains two functions random\_list and benchmark. random\_list takes takes care of generating a random list of integers as test data, we pass into the function an upper bound of an interval that the numbers in the list should be within and n which specifies the size of the list.
 benchmark takes care of running the benchmark n number of times and returns the average run time of those n runs.
 
-```
+```elixir
   1 defmodule Helpers do
   2     def random_list(interval, n) do
   3         Enum.map(1..n, fn _ -> :rand.uniform(interval) end)
@@ -117,7 +117,7 @@ benchmark takes care of running the benchmark n number of times and returns the 
 
 Now let's run the benchmark in iex.
 
-```
+```bash
 ➜  erlang-tutorial git:(master) ✗ iex
 Erlang/OTP 20 [erts-9.3] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false] [dtrace]
 
@@ -149,7 +149,7 @@ For those who have done some parallel programming before this is probably not su
 
 
 
-```
+```elixir
   1 defmodule GranParMergeSort do
   2     alias SeqMergeSort, as: Merge
   3 
@@ -174,7 +174,7 @@ For those who have done some parallel programming before this is probably not su
 
 
 ##Parallel mergesort with granularity using spawn link
-```
+```elixir
   1 defmodule ErlPsort do
   2     alias SeqMergeSort, as: Merge
   3 
@@ -220,5 +220,13 @@ It turns out Tasks are quite dangerous to play around with. Even though they are
 The final lesson from all this is probably to always benchmark your code properly. We would never have suspected our implementation to be faulty unless we saw the results of running it. 
 
 
+##References
 
+Mergesort gif: https://upload.wikimedia.org/wikipedia/commons/c/cc/Merge-sort-example-300px.gif
 
+Elixir logo: https://encrypted-tbn0.gstatic.com/images?
+q=tbn:ANd9GcT2Kncd_AWN2DfPoSvv6sQieZtLlKG4YeLu5FuJn-8g__fZt5uX
+
+Elixir homepage: https://elixir-lang.org/
+
+Book by Dave Thomas: Programming Elixir
