@@ -3,32 +3,29 @@
 
 %% returns the pid of the pool manager
 pool_start(Nbr_workers) ->
-    Pool_pid = spawn_link(fun solution:pool_init/0),
+    Pool_pid = spawn_link(pool,pool_loop,[[]]),
     Ws = start_workers(Nbr_workers, Pool_pid),
-    Pool_pid ! {w, Ws},
+    Pool_pid ! {new_ws, Ws},
     Pool_pid.
 
-pool_init() -> 
-    receive 
-        {w, Workers} -> pool_loop(Workers)
-    end.
-
-start_workers(0, Pp) -> [spawn_link(solution, worker, [Pp])];
-start_workers(X, Pp) -> [spawn_link(solution, worker, [Pp]) | start_workers(X-1, Pp)].
+start_workers(0, Pp) -> [spawn_link(pool, worker, [Pp])];
+start_workers(X, Pp) -> [spawn_link(pool, worker, [Pp]) | start_workers(X-1, Pp)].
 
 %% Waits for messages from workgivers or workers finished with some work.
 %% Calls itself
 pool_loop([]) ->
     receive 
         {ask, Pid} -> Pid ! {no_avail, 0}, pool_loop([]);
-        {available, Pid} -> pool_loop([Pid])
+        {available, Pid} -> pool_loop([Pid]);
+        {new_ws, Workers} -> pool_loop(Workers)
         %{exit, Pid} ->  %% handle shutdown of workers.
     end;
 pool_loop([X | Xs]) ->
     receive 
         {ask, Pid} -> Pid ! {ok, X}, 
                       pool_loop(Xs);
-        {available, Pid} -> pool_loop([Pid] ++ [X|Xs])
+        {available, Pid} -> pool_loop([Pid] ++ [X|Xs]);
+        {new_ws, Workers} -> pool_loop(Workers ++ [X|Xs])
         %{exit, Pid} ->. %% handle shutdown off workers.
     end.
 
@@ -56,9 +53,3 @@ test_pool(N) ->
     end.
     
 
-%% Tries to parallize the solving by running the refinements of rows in parallel.
-%par_refine(M) ->
-
-
-%% Tries to parallize the solving by running the guesses in parallel.
-%par_guesses(M) ->
