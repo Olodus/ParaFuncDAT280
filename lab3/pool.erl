@@ -35,7 +35,7 @@ pool_loop([X | Xs]) ->
 worker(Pool_pid) ->
     receive
         {work, Pid, F, Args} ->  
-                                Pid ! {result, apply(F, Args)}, 
+                                Pid ! {result, self(), apply(F, Args)}, 
                                 Pool_pid ! {available, self()}, 
                                 worker(Pool_pid)
     end.
@@ -46,7 +46,7 @@ test_pool(N) ->
     Pp ! {ask, self()},
     receive 
         {ok, Wp} -> Wp ! {work, self(), fun() -> 1+1 end, []}, 
-                    receive {result, R} -> 
+                    receive {result, _, R} -> 
                         io:fwrite("result: ~p~n\n", [R]) 
                     end
         %{no_avail, _} ->  
