@@ -15,7 +15,7 @@ solver(Pool, [P|Puzzles]) ->
     receive
         {ok, Wp} -> Wp ! {work, self(), fun() -> solve(M) end, []},
                     receive {result, _, R} ->
-                        [{Name, R}] ++ helper(Pool, Puzzles)
+                        [{Name, R}] ++ solver(Pool, Puzzles)
                     end
         %{no_avail, _} ->  
     end.
