@@ -2,5 +2,6 @@
 # Parallelising tactic
 We use a worker pool and try to distribute the work out on it as effitiently as possible. 
 
+We have implemented the first version parallelising the seperate puzzlesolves. That unfortunately did not give us a good improvement, since we use the bm function to run each each puzzle 100 times to get an average speed of the puzzle solving. That makes the slowest puzzle a bottleneck and we therefore only get a speedup of XXXXX.
 
-We have implemented the first version parallelising the seperate puzzlesolves. We have also implemented a parallel version of the refinement, but this has an error we haven't been able to solve. 
+We have also implemented a parallel version of the refinement, but this has an error we haven't been able to solve. 
