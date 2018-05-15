@@ -13,19 +13,12 @@ solver(Pool, [P|Puzzles]) ->
     Pool ! {ask, self()},
     {Name, M} = P,
     receive
-        {ok, Wp} -> Wp ! {work, self(), fun() -> solve(M) end, []},
+        {ok, Wp} -> Wp ! {work, self(), fun() -> sudoku:bm(fun()-> solve(M) end) end, []},
                     receive {result, _, R} ->
-                        [{Name, R}] ++ helper(Pool, Puzzles)
+                        [{Name, R}] ++ solver(Pool, Puzzles)
                     end
         %{no_avail, _} ->  
     end.
-
-
-
-
-
-%benchmarks(Puzzles) ->
-%    [{Name,bm(fun()->solve(M) end)} || {Name,M} <- Puzzles].
 
 benchmarks() ->
   {ok,Puzzles} = file:consult("problems.txt"),
