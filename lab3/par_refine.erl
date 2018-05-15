@@ -84,6 +84,7 @@ fill(M) ->
 %% not to be
 
 refine(PoolPid,M) ->
+    io:fwrite("refine start 1~n"),
     NewM =
 	refine_rows(PoolPid,
 	  transpose(
@@ -107,18 +108,19 @@ refine_rows(PoolPid,M) ->
     T.
 
 create_kickoff_func(Pid) ->
-    fun(Row) ->   Pid ! {ask, self()},
+    fun(Row) -> Ref = make_ref(),
+                Pid ! {ask, self(), Ref},
                 receive
-                    {ok, Wp} -> Wp ! {work, self(), fun refine_row/1, [Row]},
-                                {await, Wp};
-                    {no_avail, _} -> {done, apply(fun refine_row/1, [Row])}
+                    {ok, Ref, Wp} -> Wp ! {work, self(), Ref, fun refine_row/1, [Row]},
+                                {await, Wp, Ref};
+                    {no_avail, Ref, _} -> {done, apply(fun refine_row/1, [Row])}
                 end
     end.
 
 await_and_format(T) -> 
     case T of
         {done, Result} -> Result;
-        {await, Wp} -> receive {result, Wp, Result} -> Result end;
+        {await, Wp, Ref} -> receive {result, Wp, Ref, Result} -> Result end;
         _ -> 'error'
     end.
 
@@ -218,6 +220,7 @@ update_nth(I,X,Xs) ->
 %% solve a puzzle
 
 solve(PoolPid,M) ->
+    io:fwrite("solve start 1~n"),
     Solution = solve_refined(PoolPid,refine(PoolPid,fill(M))),
     case valid_solution(Solution) of
 	true ->
