@@ -83,8 +83,7 @@ fill(M) ->
 %% refine entries which are lists by removing numbers they are known
 %% not to be
 
-refine(M) ->
-    PoolPid = pool_start(4),
+refine(PoolPid,M) ->
     NewM =
 	refine_rows(PoolPid,
 	  transpose(
@@ -96,13 +95,16 @@ refine(M) ->
     if M==NewM ->
 	    M;
        true ->
-	    refine(NewM)
+	    refine(PoolPid,NewM)
     end.
 
 refine_rows(PoolPid,M) ->
     KickoffFunc = create_kickoff_func(PoolPid),
     Nm = lists:map(KickoffFunc, M),
-    lists:map(fun await_and_format/1, Nm).
+    io:fwrite("~w~n",[Nm]),
+    T = lists:map(fun await_and_format/1, Nm),
+    io:fwrite("~w~n",[T]),
+    T.
 
 create_kickoff_func(Pid) ->
     fun(Row) ->   Pid ! {ask, self()},
@@ -126,6 +128,7 @@ refine_row(Row) ->
 	[if is_list(X) ->
 		 case X--Entries of
 		     [] ->
+            io:fwrite("refine_row 1~n"),
 			 exit(no_solution);
 		     [Y] ->
 			 Y;
@@ -142,6 +145,9 @@ refine_row(Row) ->
 	true ->
 	    NewRow;
 	false ->
+        io:fwrite("startrow ~w ~w~n", [self(),Row]),
+        io:fwrite("entries ~w ~w~n", [self(),Entries]),
+        io:fwrite("refine_row 2 ~w ~w~n", [self(),NewRow]),
 	    exit(no_solution)
     end.
 
@@ -186,9 +192,9 @@ guess(M) ->
 %% given a matrix, guess an element to form a list of possible
 %% extended matrices, easiest problem first.
 
-guesses(M) ->
+guesses(PoolPid,M) ->
     {I,J,Guesses} = guess(M),
-    Ms = [catch refine(update_element(M,I,J,G)) || G <- Guesses],
+    Ms = [catch refine(PoolPid,update_element(M,I,J,G)) || G <- Guesses],
     SortedGuesses =
 	lists:sort(
 	  [{hard(NewM),NewM}
@@ -211,8 +217,8 @@ update_nth(I,X,Xs) ->
 
 %% solve a puzzle
 
-solve(M) ->
-    Solution = solve_refined(refine(fill(M))),
+solve(PoolPid,M) ->
+    Solution = solve_refined(PoolPid,refine(PoolPid,fill(M))),
     case valid_solution(Solution) of
 	true ->
 	    Solution;
@@ -220,22 +226,23 @@ solve(M) ->
 	    exit({invalid_solution,Solution})
     end.
 
-solve_refined(M) ->
+solve_refined(PoolPid,M) ->
     case solved(M) of
 	true ->
 	    M;
 	false ->
-	    solve_one(guesses(M))
+	    solve_one(PoolPid,guesses(PoolPid,M))
     end.
 
-solve_one([]) ->
+solve_one(PoolPid,[]) ->
+    io:fwrite("solve_one~n"),
     exit(no_solution);
-solve_one([M]) ->
-    solve_refined(M);
-solve_one([M|Ms]) ->
-    case catch solve_refined(M) of
+solve_one(PoolPid,[M]) ->
+    solve_refined(PoolPid,M);
+solve_one(PoolPid,[M|Ms]) ->
+    case catch solve_refined(PoolPid,M) of
 	{'EXIT',no_solution} ->
-	    solve_one(Ms);
+	    solve_one(PoolPid,Ms);
 	Solution ->
 	    Solution
     end.
@@ -252,11 +259,12 @@ repeat(F) ->
     [F() || _ <- lists:seq(1,?EXECUTIONS)].
 
 benchmarks(Puzzles) ->
-    [{Name,bm(fun()->solve(M) end)} || {Name,M} <- Puzzles].
+    PoolPid = pool_start(2),
+    [{Name,bm(fun()->solve(PoolPid,M) end)} || {Name,M} <- Puzzles].
 
 benchmarks() ->
-  {ok,Puzzles} = file:consult("problems.txt"),
-  timer:tc(?MODULE,benchmarks,[Puzzles]).
+    {ok,Puzzles} = file:consult("problems.txt"),
+    timer:tc(?MODULE,benchmarks,[Puzzles]).
 		      
 %% check solutions for validity
 

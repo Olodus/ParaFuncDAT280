@@ -1,0 +1,6 @@
+
+# Parallelising tactic
+We use a worker pool and try to distribute the work out on it as effitiently as possible. 
+
+
+We have implemented the first version parallelising the seperate puzzlesolves. We have also implemented a parallel version of the refinement, but this has an error we haven't been able to solve. 
