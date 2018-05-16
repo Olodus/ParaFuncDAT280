@@ -35,9 +35,15 @@ pool_loop([X | Xs]) ->
 worker(Pool_pid) ->
     receive
         {work, Pid, Ref, F, Args} ->  
-                                Pid ! {result, self(), Ref, apply(F, Args)}, 
-                                Pool_pid ! {available, self()}, 
-                                worker(Pool_pid)
+                case catch apply(F, Args) of
+                    {'EXIT', no_solution} -> io:fwrite("Exception thrown in worker ~n"),
+                                   Pid ! {error, self(), Ref},
+                                   Pool_pid ! {available, self()},
+                                   worker(Pool_pid);
+                    Result -> Pid ! {result, self(), Ref, Result}, 
+                              Pool_pid ! {available, self()}, 
+                              worker(Pool_pid)
+                end
     end.
 
 %% Test workers 

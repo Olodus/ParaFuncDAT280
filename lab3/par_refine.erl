@@ -84,7 +84,7 @@ fill(M) ->
 %% not to be
 
 refine(PoolPid,M) ->
-    io:fwrite("refine start 1~n"),
+    %io:fwrite("refine start 1~n"),
     NewM =
 	refine_rows(PoolPid,
 	  transpose(
@@ -100,6 +100,7 @@ refine(PoolPid,M) ->
     end.
 
 refine_rows(PoolPid,M) ->
+    %lists:map(fun refine_row/1, M).
     KickoffFunc = create_kickoff_func(PoolPid),
     Nm = lists:map(KickoffFunc, M),
     io:fwrite("~w~n",[Nm]),
@@ -120,7 +121,11 @@ create_kickoff_func(Pid) ->
 await_and_format(T) -> 
     case T of
         {done, Result} -> Result;
-        {await, Wp, Ref} -> receive {result, Wp, Ref, Result} -> Result end;
+        {await, Wp, Ref} -> receive 
+                                {result, Wp, Ref, Result} -> Result;
+                                {error, Wp, Ref} -> io:fwrite("~w throws in main process ~n",[self()]),
+                                    exit(no_solution)
+                            end;
         _ -> 'error'
     end.
 
@@ -130,7 +135,7 @@ refine_row(Row) ->
 	[if is_list(X) ->
 		 case X--Entries of
 		     [] ->
-            io:fwrite("refine_row 1~n"),
+            io:fwrite("~w refine_row No entries left in a box~n", [self()]),
 			 exit(no_solution);
 		     [Y] ->
 			 Y;
@@ -147,9 +152,10 @@ refine_row(Row) ->
 	true ->
 	    NewRow;
 	false ->
-        io:fwrite("startrow ~w ~w~n", [self(),Row]),
-        io:fwrite("entries ~w ~w~n", [self(),Entries]),
-        io:fwrite("refine_row 2 ~w ~w~n", [self(),NewRow]),
+        %io:fwrite("startrow ~w ~w~n", [self(),Row]),
+        %io:fwrite("entries ~w ~w~n", [self(),Entries]),
+        %io:fwrite("refine_row 2 ~w ~w~n", [self(),NewRow]),
+        io:fwrite("~w refine_row Same entries twice ~n", [self()]),
 	    exit(no_solution)
     end.
 
@@ -220,8 +226,9 @@ update_nth(I,X,Xs) ->
 %% solve a puzzle
 
 solve(PoolPid,M) ->
-    io:fwrite("solve start 1~n"),
+    io:fwrite("~w solve start 1~n",[self()]),
     Solution = solve_refined(PoolPid,refine(PoolPid,fill(M))),
+    io:fwrite("~w solve end ~n",[self()]),
     case valid_solution(Solution) of
 	true ->
 	    Solution;
@@ -232,29 +239,37 @@ solve(PoolPid,M) ->
 solve_refined(PoolPid,M) ->
     case solved(M) of
 	true ->
+        io:fwrite("~w solve_refined Refinement solved it ~n", [self()]),
 	    M;
 	false ->
+        io:fwrite("~w solve_refined refinement wasnt enough, starts guessing ~w ~n", [self(),length(guesses(PoolPid,M))]),
 	    solve_one(PoolPid,guesses(PoolPid,M))
     end.
 
 solve_one(PoolPid,[]) ->
-    io:fwrite("solve_one~n"),
+    io:fwrite("~w solve_one no more possible solutions~n",[self()]),
     exit(no_solution);
 solve_one(PoolPid,[M]) ->
+    io:fwrite("~w solve_one last possible guess~n", [self()]),
     solve_refined(PoolPid,M);
 solve_one(PoolPid,[M|Ms]) ->
+    Ref = make_ref(),
+    io:fwrite("~w solve_one recursive call ~w over ~w possible guesses~n", [self(), Ref, length([M|Ms])]),
     case catch solve_refined(PoolPid,M) of
 	{'EXIT',no_solution} ->
+        io:fwrite("~w solve_one failed, trying next one~n", [self()]),
 	    solve_one(PoolPid,Ms);
 	Solution ->
+        io:fwrite("~w solve_one successful ~n", [self()]),
 	    Solution
     end.
 
 %% benchmarks
 
--define(EXECUTIONS,100).
+-define(EXECUTIONS,10).
 
 bm(F) ->
+    io:fwrite("~w New Puzzle ~n", [self()]),
     {T,_} = timer:tc(?MODULE,repeat,[F]),
     T/?EXECUTIONS/1000.
 
@@ -262,7 +277,7 @@ repeat(F) ->
     [F() || _ <- lists:seq(1,?EXECUTIONS)].
 
 benchmarks(Puzzles) ->
-    PoolPid = pool_start(2),
+    PoolPid = pool_start(9),
     [{Name,bm(fun()->solve(PoolPid,M) end)} || {Name,M} <- Puzzles].
 
 benchmarks() ->
