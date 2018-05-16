@@ -101,20 +101,20 @@ refine(PoolPid,M) ->
 
 refine_rows(PoolPid,M) ->
     %lists:map(fun refine_row/1, M).
-    KickoffFunc = create_kickoff_func(PoolPid),
+    KickoffFunc = create_kickoff_func(PoolPid, fun refine_row/1),
     Nm = lists:map(KickoffFunc, M),
     %io:fwrite("~w~n",[Nm]),
     T = lists:map(fun await_and_format/1, Nm),
     %io:fwrite("~w~n~n~n",[T]),
     T.
 
-create_kickoff_func(Pid) ->
+create_kickoff_func(Pid, Func) ->
     fun(Row) -> Ref = make_ref(),
                 Pid ! {ask, self(), Ref},
                 receive
-                    {ok, Ref, Wp} -> Wp ! {work, self(), Ref, fun refine_row/1, [Row]},
+                    {ok, Ref, Wp} -> Wp ! {work, self(), Ref, Func, [Row]},
                                 {await, Wp, Ref};
-                    {no_avail, Ref, _} -> {done, apply(fun refine_row/1, [Row])}
+                    {no_avail, Ref, _} -> {done, apply(Func, [Row])}
                 end
     end.
 
@@ -227,7 +227,7 @@ update_nth(I,X,Xs) ->
 
 solve(PoolPid,M) ->
 
-    io:fwrite("~n~n~w NEW PUZZLE~n~n~n~n~n~n",[self()]),
+    %io:fwrite("~n~n~w NEW PUZZLE~n~n~n~n~n~n",[self()]),
     %io:fwrite("~w solve start 1~n",[self()]),
     Solution = solve_refined(PoolPid,refine(PoolPid,fill(M))),
     %io:fwrite("~w solve end ~n",[self()]),
@@ -280,7 +280,7 @@ repeat(F) ->
     [F() || _ <- lists:seq(1,?EXECUTIONS)].
 
 benchmarks(Puzzles) ->
-    PoolPid = pool_start(9),
+    PoolPid = pool_start(7),
     [{Name,bm(fun()->solve(PoolPid,M) end)} || {Name,M} <- Puzzles].
 
 benchmarks() ->
