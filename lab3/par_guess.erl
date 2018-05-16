@@ -232,7 +232,8 @@ solve(PoolPid,M) ->
     Nm = refine(fill(M)),
     case solved(Nm) of
         true -> Nm;
-        false -> Solution = par_solve_guesses(PoolPid,guesses(Nm)),
+        false ->io:fwrite("~nCalling par solve guesses!~n"), 
+                Solution = par_solve_guesses(PoolPid,guesses(Nm)),
                  %io:fwrite("~w solve end ~n",[self()]),
                  case valid_solution(Solution) of
 	             true ->
@@ -277,20 +278,43 @@ solve_one([M|Ms]) ->
 
 par_solve_guesses(PoolPid,G) ->
     case G of
-        [] -> exit(no_solution);
-        [M|Ms] -> 
+        [] -> 
+            io:fwrite("~n~w  All work started~n",[self()]);
+        [M|Ms] ->
+
+            io:fwrite("~n~w  G is : ~w~n",[self(), G]),
+            io:fwrite("~n~w   We have a list!~n",[self()]),
             Ref = make_ref(),
             PoolPid ! {ask, self(), Ref},
+            io:fwrite("~n~w   We have asked for a worker!~n",[self()]),
             receive
-                {ok, Wp, Ref} -> 
+                {ok, Ref, Wp} -> 
+                        io:fwrite("~n~w  Starting work~n",[self()]),
                         Wp ! {work, self(), Ref, fun solve_refined/1, M},
-                        par_solve_guesses(PoolPid, Ms);
-                {no_avail, Ref} -> 
+                        par_solve_guesses(PoolPid, Ms),
+
+                        receive
+                            {result, _, _, Result} ->   
+                                io:fwrite("~n~w  We received result!~n",[self()]),
+                                Result;
+                            {error, _, _} ->  
+                                io:fwrite("~n~w  We received error!~n",[self()]),
+                                par_solve_guesses(PoolPid,[M|Ms])
+                        end;
+
+                {no_avail, Ref, _} -> 
                     receive
-                        {result, _, _, Result} -> Result;
-                        {error, _, _} -> par_solve_guesses(PoolPid,[M|Ms])
+                        {result, _, _, Result} -> 
+                            
+                            io:fwrite("~n~w  We received result when none was available!~n",[self()]),
+                            Result;
+                        {error, _, _} ->  
+                            io:fwrite("~n~w  We received error when none was available!~n",[self()]),
+                            par_solve_guesses(PoolPid,[M|Ms])
                     end
             end
+
+
     end.
 
 %% benchmarks
