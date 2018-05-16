@@ -1,4 +1,4 @@
--module(par_refine).
+-module(par_guess).
 %-include_lib("eqc/include/eqc.hrl").
 -import(pool,[pool_start/1]).
 -compile(export_all).
@@ -83,30 +83,30 @@ fill(M) ->
 %% refine entries which are lists by removing numbers they are known
 %% not to be
 
-refine(PoolPid,M) ->
+refine(M) ->
     %io:fwrite("refine start 1~n"),
     NewM =
-	refine_rows(PoolPid,
+	refine_rows(
 	  transpose(
-	    refine_rows(PoolPid,
+	    refine_rows(
 	      transpose(
 		unblocks(
-		  refine_rows(PoolPid,
+		  refine_rows(
 		    blocks(M))))))),
     if M==NewM ->
 	    M;
        true ->
-	    refine(PoolPid,NewM)
+	    refine(NewM)
     end.
 
-refine_rows(PoolPid,M) ->
-    %lists:map(fun refine_row/1, M).
-    KickoffFunc = create_kickoff_func(PoolPid, fun refine_row/1),
-    Nm = lists:map(KickoffFunc, M),
+refine_rows(M) ->
+    lists:map(fun refine_row/1, M).
+    %KickoffFunc = create_kickoff_func(PoolPid, fun refine_row/1),
+    %Nm = lists:map(KickoffFunc, M),
     %io:fwrite("~w~n",[Nm]),
-    T = lists:map(fun await_and_format/1, Nm),
+    %T = lists:map(fun await_and_format/1, Nm),
     %io:fwrite("~w~n~n~n",[T]),
-    T.
+    %T.
 
 create_kickoff_func(Pid, Func) ->
     fun(Row) -> Ref = make_ref(),
@@ -200,9 +200,9 @@ guess(M) ->
 %% given a matrix, guess an element to form a list of possible
 %% extended matrices, easiest problem first.
 
-guesses(PoolPid,M) ->
+guesses(M) ->
     {I,J,Guesses} = guess(M),
-    Ms = [catch refine(PoolPid,update_element(M,I,J,G)) || G <- Guesses],
+    Ms = [catch refine(update_element(M,I,J,G)) || G <- Guesses],
     SortedGuesses =
 	lists:sort(
 	  [{hard(NewM),NewM}
@@ -229,16 +229,20 @@ solve(PoolPid,M) ->
 
     %io:fwrite("~n~n~w NEW PUZZLE~n~n~n~n~n~n",[self()]),
     %io:fwrite("~w solve start 1~n",[self()]),
-    Solution = solve_refined(PoolPid,refine(PoolPid,fill(M))),
-    %io:fwrite("~w solve end ~n",[self()]),
-    case valid_solution(Solution) of
-	true ->
-	    Solution;
-	false ->
-	    exit({invalid_solution,Solution})
+    Nm = refine(fill(M)),
+    case solved(Nm) of
+        true -> Nm;
+        false -> Solution = par_solve_guesses(PoolPid,guesses(Nm)),
+                 %io:fwrite("~w solve end ~n",[self()]),
+                 case valid_solution(Solution) of
+	             true ->
+	                 Solution;
+	             false ->
+	                 exit({invalid_solution,Solution})
+                 end
     end.
 
-solve_refined(PoolPid,M) ->
+solve_refined(M) ->
     case solved(M) of
 	true ->
         %io:fwrite("~w solve_refined Refinement solved it ~n", [self()]),
@@ -246,40 +250,48 @@ solve_refined(PoolPid,M) ->
 	false ->
         %io:fwrite("~w solve_refined Not solved start guessing ~n", [self()]),
          %io:fwrite("~w solve_refined refinement wasnt enough, starts guessing ~w ~n", [self(),length(guesses(PoolPid,M))]),
-	    solve_one(PoolPid,guesses(PoolPid,M))
+	    solve_one(guesses(M))
     end.
 
-solve_one(PoolPid,[]) ->
+solve_one([]) ->
     %io:fwrite("~w solve_one no more possible solutions~n",[self()]),
     exit(no_solution);
-solve_one(PoolPid,[M]) ->
+solve_one([M]) ->
     %io:fwrite("~w solve_one last possible guess~n", [self()]),
-    solve_refined(PoolPid,M);
-solve_one(PoolPid,[M|Ms]) ->
-    Ref = make_ref(),
+    solve_refined(M);
+solve_one([M|Ms]) ->
+    %Ref = make_ref(),
     %io:fwrite("~w solve_one recursive call ~w over ~w possible guesses~n", [self(), Ref, length([M|Ms])]),
-    case catch solve_refined(PoolPid,M) of
+    case catch solve_refined(M) of
 	{'EXIT',no_solution} ->
         %io:fwrite("~w solve_one failed, trying next one~n", [self()]),
-	    solve_one(PoolPid,Ms);
+	    solve_one(Ms);
 	Solution ->
         %io:fwrite("~w solve_one successful ~n", [self()]),
 	    Solution
     end.
 
 %% Parallize solve
-par_solve_guesses(PoolPid,M) ->
-    Kf = create_kickoff_function(PoolPid,fun solve_refined/1),
-    Solutions = lists:map(Kf,M),
+%par_solve_guesses(PoolPid,[]) ->
     
-    receive 
-        {result, _, _, Result} -> Result;
-        {error, _, _} -> .
-    after length(Solutions)
-          exit(no_solution)
-    end.
 
-wait_for_solutions(Spawned 
+par_solve_guesses(PoolPid,G) ->
+    case G of
+        [] -> exit(no_solution);
+        [M|Ms] -> 
+            Ref = make_ref(),
+            PoolPid ! {ask, self(), Ref},
+            receive
+                {ok, Wp, Ref} -> 
+                        Wp ! {work, self(), Ref, fun solve_refined/1, M},
+                        par_solve_guesses(PoolPid, Ms);
+                {no_avail, Ref} -> 
+                    receive
+                        {result, _, _, Result} -> Result;
+                        {error, _, _} -> par_solve_guesses(PoolPid,[M|Ms])
+                    end
+            end
+    end.
 
 %% benchmarks
 
