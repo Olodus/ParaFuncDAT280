@@ -36,7 +36,8 @@ worker(Pool_pid) ->
     receive
         {work, Pid, Ref, F, Args} ->  
                 case catch apply(F, Args) of
-                    {'EXIT', no_solution} -> io:fwrite("Exception thrown in worker ~n"),
+                    {'EXIT', no_solution} -> %io:fwrite("Exception thrown in worker ~n"),
+                                    %io:fwrite("Args are: ~w ~n",[Args]),
                                    Pid ! {error, self(), Ref},
                                    Pool_pid ! {available, self()},
                                    worker(Pool_pid);
