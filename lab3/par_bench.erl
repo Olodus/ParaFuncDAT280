@@ -5,16 +5,17 @@
 
 %% Runs the benchmark in parallel by splitting it onto a worker pool.
 par_benchmarks(Puzzles) -> 
-    Pp = pool_start(10),
+    Pp = pool_start(2),
     solver(Pp, Puzzles).
 
 solver(_, []) -> [];
 solver(Pool, [P|Puzzles]) ->
-    Pool ! {ask, self()},
+    Ref = make_ref(),
+    Pool ! {ask, self(), Ref},
     {Name, M} = P,
     receive
-        {ok, Wp} -> Wp ! {work, self(), fun() -> sudoku:bm(fun()-> solve(M) end) end, []},
-                    receive {result, _, R} ->
+        {ok, Ref, Wp} -> Wp ! {work, self(), Ref, fun() -> sudoku:bm(fun()-> solve(M) end) end, []},
+                    receive {result, _, Ref, R} ->
                         [{Name, R}] ++ solver(Pool, Puzzles)
                     end
         %{no_avail, _} ->  
