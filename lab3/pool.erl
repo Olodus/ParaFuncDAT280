@@ -3,7 +3,7 @@
 
 %% returns the pid of the pool manager
 pool_start(Nbr_workers) ->
-    Pool_pid = spawn_link(pool,pool_loop,[[]]),
+    Pool_pid = spawn_link(pool,pool_loop,[[],[]]),
     Ws = start_workers(Nbr_workers, Pool_pid),
     Pool_pid ! {new_ws, Ws},
     Pool_pid.
@@ -13,20 +13,36 @@ start_workers(X, Pp) -> [spawn_link(pool, worker, [Pp]) | start_workers(X-1, Pp)
 
 %% Waits for messages from workgivers or workers finished with some work.
 %% Calls itself
-pool_loop([]) ->
+pool_loop([],W) ->
     receive 
-        {ask, Pid, Ref} -> Pid ! {no_avail, Ref, 0}, pool_loop([]);
-        {available, Pid} -> pool_loop([Pid]);
-        {new_ws, Workers} -> pool_loop(Workers)
-        %{exit, Pid} ->  %% handle shutdown of workers.
+        {ask, Pid, Ref} -> 
+            Pid ! {no_avail, Ref, 0}, 
+            pool_loop([],W);
+        {available, Pid} -> 
+            case length(W)>0 of
+                true ->
+                    {RetPid,RetRef,Func,Args} = hd(W),
+                    Pid ! {work,RetPid,RetRef,Func,Args},
+                    pool_loop([],tl(W));
+                false ->
+                    pool_loop([Pid],W)
+            end;
+        {new_ws, Workers} -> pool_loop(Workers,W); %!!!What if there is work?!!!!
+        {queue, Work} -> pool_loop([],[Work]++W);
+        {exit, Pid} -> pool_loop([],[])
     end;
-pool_loop([X | Xs]) ->
+pool_loop([X | Xs],W) ->
     receive 
-        {ask, Pid, Ref} -> Pid ! {ok, Ref, X}, 
-                      pool_loop(Xs);
-        {available, Pid} -> pool_loop([Pid] ++ [X|Xs]);
-        {new_ws, Workers} -> pool_loop(Workers ++ [X|Xs])
-        %{exit, Pid} ->. %% handle shutdown off workers.
+        {ask, Pid, Ref} -> 
+            Pid ! {ok, Ref, X}, 
+            pool_loop(Xs,W);
+        {available, Pid} -> pool_loop([Pid] ++ [X|Xs],W);
+        {queue, Work} -> 
+            {RetPid, RetRef, Func, Args} = Work,
+            X ! {work, RetPid, RetRef, Func, Args},
+            pool_loop(Xs, W);
+        %{new_ws, Workers} -> pool_loop(Workers ++ [X|Xs]) we probably shouldn't allow this
+        {exit, Pid} -> pool_loop([X|Xs],[])
     end.
 
 

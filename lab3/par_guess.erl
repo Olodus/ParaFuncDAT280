@@ -232,15 +232,16 @@ solve(PoolPid,M) ->
     Nm = refine(fill(M)),
     case solved(Nm) of
         true -> Nm;
-        false ->io:fwrite("~nCalling par solve guesses!~n"), 
-                Solution = par_solve_guesses(PoolPid,guesses(Nm)),
-                 %io:fwrite("~w solve end ~n",[self()]),
-                 case valid_solution(Solution) of
-	             true ->
-	                 Solution;
-	             false ->
-	                 exit({invalid_solution,Solution})
-                 end
+        false ->
+            %io:fwrite("~nCalling par solve guesses!~n"), 
+            Solution = par_solve_guesses(PoolPid,guesses(Nm),1),
+            %io:fwrite("~w solve end ~n",[self()]),
+            case valid_solution(Solution) of
+	            true ->
+	                Solution;
+	            false ->
+	                exit({invalid_solution,Solution})
+            end
     end.
 
 solve_refined(M) ->
@@ -276,51 +277,39 @@ solve_one([M|Ms]) ->
 %par_solve_guesses(PoolPid,[]) ->
     
 
-par_solve_guesses(PoolPid,G) ->
+par_solve_guesses(PoolPid,G,NbrOfGuessesLeft) ->
     case G of
         [] -> 
-            io:fwrite("~n~w  All work started~n",[self()]);
-        [M|Ms] ->
-
-            io:fwrite("~n~w  G is : ~w~n",[self(), G]),
-            io:fwrite("~n~w   We have a list!~n",[self()]),
-            Ref = make_ref(),
-            PoolPid ! {ask, self(), Ref},
-            io:fwrite("~n~w   We have asked for a worker!~n",[self()]),
+            %io:fwrite("~n~w  All work kicked off. Nbr of Guesses : ~w ~n Receiving...~n",[self(),NbrOfGuessesLeft]),
             receive
-                {ok, Ref, Wp} -> 
-                        io:fwrite("~n~w  Starting work~n",[self()]),
-                        Wp ! {work, self(), Ref, fun solve_refined/1, [M]},
-                        par_solve_guesses(PoolPid, Ms),
-
-                        receive
-                            {result, _, _, Result} ->   
-                                io:fwrite("~n~w  We received result!~n",[self()]),
-                                io:fwrite("~n~w  Received result is: ~w~n",[self(),Result]),
-                                Result;
-                            {error, _, _} ->  
-                                io:fwrite("~n~w  We received error!~n",[self()]),
-                                par_solve_guesses(PoolPid,[M|Ms])
-                        end;
-
-                {no_avail, Ref, _} -> 
-                    receive
-                        {result, _, _, Result} -> 
-                            
-                            io:fwrite("~n~w  We received result when none was available!~n",[self()]),
-                            Result;
-                        {error, _, _} ->  
-                            io:fwrite("~n~w  We received error when none was available!~n",[self()]),
-                            par_solve_guesses(PoolPid,[M|Ms])
-                    end
-            end
-
-
+                {result, _, _, Result} -> 
+                        %io:fwrite("~n~w  Got an result ~n",[self()]),
+                        PoolPid ! {exit, self()},
+                        Result;
+                {error, _, _} -> 
+                    %io:fwrite("~n~w  Received an no_solution ~n",[self()]),
+                    par_solve_guesses(PoolPid,[],NbrOfGuessesLeft-1)
+                    %case NbrOfGuessesLeft == 0 of
+                    %    true -> 
+                    %        io:fwrite("~n~w  Received error from last possible guess ~n FAIL",[self()]),
+                    %        exit(no_solution);
+                    %    false ->
+                    %        io:fwrite("~n~w  Received an no_solution ~n",[self()]),
+                    %        par_solve_guesses(PoolPid,[],NbrOfGuessesLeft-1)
+                    %end
+            end;
+        [M|Ms] ->
+            %io:fwrite("~n~w  G is : ~w~n",[self(), G]),
+            %io:fwrite("~n~w   We have a list!~n",[self()]),
+            Ref = make_ref(),
+            PoolPid ! {queue, {self(), Ref, fun solve_refined/1,[M]}},
+            %io:fwrite("~n~w   We have queued up some work!~n",[self()]),
+            par_solve_guesses(PoolPid,Ms,NbrOfGuessesLeft+1)
     end.
 
 %% benchmarks
 
--define(EXECUTIONS,1).
+-define(EXECUTIONS,100).
 
 bm(F) ->
     io:fwrite("~w New Puzzle ~n", [self()]),
