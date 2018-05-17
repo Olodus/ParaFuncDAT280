@@ -290,12 +290,13 @@ par_solve_guesses(PoolPid,G) ->
             receive
                 {ok, Ref, Wp} -> 
                         io:fwrite("~n~w  Starting work~n",[self()]),
-                        Wp ! {work, self(), Ref, fun solve_refined/1, M},
+                        Wp ! {work, self(), Ref, fun solve_refined/1, [M]},
                         par_solve_guesses(PoolPid, Ms),
 
                         receive
                             {result, _, _, Result} ->   
                                 io:fwrite("~n~w  We received result!~n",[self()]),
+                                io:fwrite("~n~w  Received result is: ~w~n",[self(),Result]),
                                 Result;
                             {error, _, _} ->  
                                 io:fwrite("~n~w  We received error!~n",[self()]),
