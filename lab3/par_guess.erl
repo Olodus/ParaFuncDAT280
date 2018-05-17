@@ -84,7 +84,6 @@ fill(M) ->
 %% not to be
 
 refine(M) ->
-    %io:fwrite("refine start 1~n"),
     NewM =
 	refine_rows(
 	  transpose(
@@ -101,12 +100,6 @@ refine(M) ->
 
 refine_rows(M) ->
     lists:map(fun refine_row/1, M).
-    %KickoffFunc = create_kickoff_func(PoolPid, fun refine_row/1),
-    %Nm = lists:map(KickoffFunc, M),
-    %io:fwrite("~w~n",[Nm]),
-    %T = lists:map(fun await_and_format/1, Nm),
-    %io:fwrite("~w~n~n~n",[T]),
-    %T.
 
 create_kickoff_func(Pid, Func) ->
     fun(Row) -> Ref = make_ref(),
@@ -123,7 +116,7 @@ await_and_format(T) ->
         {done, Result} -> Result;
         {await, Wp, Ref} -> receive 
                                 {result, Wp, Ref, Result} -> Result;
-                                {error, Wp, Ref} -> %io:fwrite("~w throws in main process ~n",[self()]),
+                                {error, Wp, Ref} ->
                                     exit(no_solution)
                             end;
         _ -> 'error'
@@ -135,7 +128,6 @@ refine_row(Row) ->
 	[if is_list(X) ->
 		 case X--Entries of
 		     [] ->
-            %io:fwrite("~w refine_row No entries left in a box~n", [self()]),
 			 exit(no_solution);
 		     [Y] ->
 			 Y;
@@ -152,10 +144,6 @@ refine_row(Row) ->
 	true ->
 	    NewRow;
 	false ->
-        %io:fwrite("startrow ~w ~w~n", [self(),Row]),
-        %io:fwrite("entries ~w ~w~n", [self(),Entries]),
-        %io:fwrite("refine_row 2 ~w ~w~n", [self(),NewRow]),
-        %io:fwrite("~w refine_row Same entries twice ~n", [self()]),
 	    exit(no_solution)
     end.
 
@@ -226,17 +214,12 @@ update_nth(I,X,Xs) ->
 %% solve a puzzle
 
 solve(PoolPid,M) ->
-
-    %io:fwrite("~n~n~w NEW PUZZLE~n~n~n~n~n~n",[self()]),
-    %io:fwrite("~w solve start 1~n",[self()]),
     Nm = refine(fill(M)),
     case solved(Nm) of
         true -> Nm;
         false ->
-            %io:fwrite("~nCalling par solve guesses!~n"), 
             Ref = make_ref(),
             Solution = par_solve_guesses(PoolPid,guesses(Nm),1,Ref),
-            %io:fwrite("~w solve end ~n",[self()]),
             case valid_solution(Solution) of
 	            true ->
 	                Solution;
@@ -248,70 +231,38 @@ solve(PoolPid,M) ->
 solve_refined(M) ->
     case solved(M) of
 	true ->
-        %io:fwrite("~w solve_refined Refinement solved it ~n", [self()]),
 	    M;
 	false ->
-        %io:fwrite("~w solve_refined Not solved start guessing ~n", [self()]),
-         %io:fwrite("~w solve_refined refinement wasnt enough, starts guessing ~w ~n", [self(),length(guesses(PoolPid,M))]),
 	    solve_one(guesses(M))
     end.
 
 solve_one([]) ->
-    %io:fwrite("~w solve_one no more possible solutions~n",[self()]),
     exit(no_solution);
 solve_one([M]) ->
-    %io:fwrite("~w solve_one last possible guess~n", [self()]),
     solve_refined(M);
 solve_one([M|Ms]) ->
-    %Ref = make_ref(),
-    %io:fwrite("~w solve_one recursive call ~w over ~w possible guesses~n", [self(), Ref, length([M|Ms])]),
     case catch solve_refined(M) of
 	{'EXIT',no_solution} ->
-        %io:fwrite("~w solve_one failed, trying next one~n", [self()]),
 	    solve_one(Ms);
 	Solution ->
-        %io:fwrite("~w solve_one successful ~n", [self()]),
 	    Solution
     end.
 
 %% Parallize solve
-%par_solve_guesses(PoolPid,[]) ->
-    
 
 par_solve_guesses(PoolPid,G,NbrOfGuessesLeft,Ref) ->
     case G of
         [] -> 
-            %io:fwrite("~n~w  All work kicked off. Nbr of Guesses : ~w ~n Receiving...~n",[self(),NbrOfGuessesLeft]),
             receive
                 {result, _, Ref, Result} -> 
-                        %io:fwrite("~n~w  Got an result ~n",[self()]),
                         PoolPid ! {exit, self()},
                         Result;
                 {error, _, Ref} -> 
-                    %io:fwrite("~n~w  Received an no_solution ~n",[self()]),
                     par_solve_guesses(PoolPid,[],NbrOfGuessesLeft-1,Ref)
-                    %case NbrOfGuessesLeft == 0 of
-                    %    true -> 
-                    %        io:fwrite("~n~w  Received error from last possible guess ~n FAIL",[self()]),
-                    %        exit(no_solution);
-                    %    false ->
-                    %        io:fwrite("~n~w  Received an no_solution ~n",[self()]),
-                    %        par_solve_guesses(PoolPid,[],NbrOfGuessesLeft-1)
-                    %end
             end;
         [M|Ms] ->
-            %io:fwrite("~n~w  G is : ~w~n",[self(), G]),
-            %io:fwrite("~n~w   We have a list!~n",[self()]),
             PoolPid ! {queue, {self(), Ref, fun solve_refined/1,[M]}},
-            %io:fwrite("~n~w   We have queued up some work!~n",[self()]),
             par_solve_guesses(PoolPid,Ms,NbrOfGuessesLeft+1,Ref)
-    end.
-
-flush() ->
-    receive
-        _ -> flush()
-    after 
-        0 -> ok
     end.
 
 
