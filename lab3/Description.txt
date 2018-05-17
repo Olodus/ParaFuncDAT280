@@ -3,34 +3,34 @@
 # Benchmarks
 
 ## Sequential solving
-Full execution: 60630185
-wildcat:        0.39699
-diabolical:     48.43309
-vegard_hanssen: 106.55684
-challenge:      7.47393
-challenge1:     397.17806
-extreme:        9.65853
-seventeen:      36.60404
+Full execution: 60630185  
+wildcat:        0.39699  
+diabolical:     48.43309  
+vegard_hanssen: 106.55684  
+challenge:      7.47393  
+challenge1:     397.17806  
+extreme:        9.65853  
+seventeen:      36.60404  
 
 ## Parallel solving of each puzzle
-Full execution: 38781504
-wildcat:        0.57841
-diabolical:     71.76407
-vegard_hanssen: 134.24873000000002
-challenge:      11.28142
-challenge1:     387.77229
-extreme:        32.45287
-seventeen:      65.74575
+Full execution: 38781504  
+wildcat:        0.57841  
+diabolical:     71.76407  
+vegard_hanssen: 134.24873000000002  
+challenge:      11.28142  
+challenge1:     387.77229  
+extreme:        32.45287  
+seventeen:      65.74575  
 
 ## Parallel solving of first guesses in parallel
-Full execution: 42858542
-wildcat:        0.29794
-diabolical:     18.948610000000002
-vegard_hanssen: 44.39331
-challenge:      3.78094
-challenge1:     313.23831
-extreme:        16.76906
-seventeen:      31.13776
+Full execution: 42858542  
+wildcat:        0.29794  
+diabolical:     18.948610000000002  
+vegard_hanssen: 44.39331  
+challenge:      3.78094  
+challenge1:     313.23831  
+extreme:        16.76906  
+seventeen:      31.13776  
 
 # Parallelising tactic
 We use a worker pool and try to distribute the work out on it as effitiently as possible. 
