@@ -101,27 +101,6 @@ refine(M) ->
 refine_rows(M) ->
     lists:map(fun refine_row/1, M).
 
-create_kickoff_func(Pid, Func) ->
-    fun(Row) -> Ref = make_ref(),
-                Pid ! {ask, self(), Ref},
-                receive
-                    {ok, Ref, Wp} -> Wp ! {work, self(), Ref, Func, [Row]},
-                                {await, Wp, Ref};
-                    {no_avail, Ref, _} -> {done, apply(Func, [Row])}
-                end
-    end.
-
-await_and_format(T) -> 
-    case T of
-        {done, Result} -> Result;
-        {await, Wp, Ref} -> receive 
-                                {result, Wp, Ref, Result} -> Result;
-                                {error, Wp, Ref} ->
-                                    exit(no_solution)
-                            end;
-        _ -> 'error'
-    end.
-
 refine_row(Row) ->
     Entries = entries(Row),
     NewRow =
