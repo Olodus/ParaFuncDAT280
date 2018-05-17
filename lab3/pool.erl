@@ -41,7 +41,6 @@ pool_loop([X | Xs],W) ->
             {RetPid, RetRef, Func, Args} = Work,
             X ! {work, RetPid, RetRef, Func, Args},
             pool_loop(Xs, W);
-        %{new_ws, Workers} -> pool_loop(Workers ++ [X|Xs]) we probably shouldn't allow this
         {exit, Pid} -> pool_loop([X|Xs],[])
     end.
 
@@ -52,8 +51,7 @@ worker(Pool_pid) ->
     receive
         {work, Pid, Ref, F, Args} ->  
                 case catch apply(F, Args) of
-                    {'EXIT', no_solution} -> %io:fwrite("Exception thrown in worker ~n"),
-                                    %io:fwrite("Args are: ~w ~n",[Args]),
+                    {'EXIT', no_solution} ->
                                    Pid ! {error, self(), Ref},
                                    Pool_pid ! {available, self()},
                                    worker(Pool_pid);
