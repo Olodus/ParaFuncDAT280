@@ -1,4 +1,26 @@
 
+# Benchmarks
+
+## Parallel solving of guessing
+{42858542,
+ [{wildcat,0.29794},
+   {diabolical,18.948610000000002},
+     {vegard_hanssen,44.39331},
+       {challenge,3.78094},
+         {challenge1,313.23831},
+           {extreme,16.76906},
+             {seventeen,31.13776}]}
+
+## Sequential solving
+{52624951,
+ [{wildcat,0.3463},
+   {diabolical,41.99331},
+     {vegard_hanssen,91.98941},
+       {challenge,6.3028699999999995},
+         {challenge1,345.10912},
+           {extreme,8.63194},
+             {seventeen,31.876330000000003}]}
+
 # Parallelising tactic
 We use a worker pool and try to distribute the work out on it as effitiently as possible. 
 
