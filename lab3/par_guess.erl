@@ -234,7 +234,8 @@ solve(PoolPid,M) ->
         true -> Nm;
         false ->
             %io:fwrite("~nCalling par solve guesses!~n"), 
-            Solution = par_solve_guesses(PoolPid,guesses(Nm),1),
+            Ref = make_ref(),
+            Solution = par_solve_guesses(PoolPid,guesses(Nm),1,Ref),
             %io:fwrite("~w solve end ~n",[self()]),
             case valid_solution(Solution) of
 	            true ->
@@ -277,18 +278,18 @@ solve_one([M|Ms]) ->
 %par_solve_guesses(PoolPid,[]) ->
     
 
-par_solve_guesses(PoolPid,G,NbrOfGuessesLeft) ->
+par_solve_guesses(PoolPid,G,NbrOfGuessesLeft,Ref) ->
     case G of
         [] -> 
             %io:fwrite("~n~w  All work kicked off. Nbr of Guesses : ~w ~n Receiving...~n",[self(),NbrOfGuessesLeft]),
             receive
-                {result, _, _, Result} -> 
+                {result, _, Ref, Result} -> 
                         %io:fwrite("~n~w  Got an result ~n",[self()]),
                         PoolPid ! {exit, self()},
                         Result;
-                {error, _, _} -> 
+                {error, _, Ref} -> 
                     %io:fwrite("~n~w  Received an no_solution ~n",[self()]),
-                    par_solve_guesses(PoolPid,[],NbrOfGuessesLeft-1)
+                    par_solve_guesses(PoolPid,[],NbrOfGuessesLeft-1,Ref)
                     %case NbrOfGuessesLeft == 0 of
                     %    true -> 
                     %        io:fwrite("~n~w  Received error from last possible guess ~n FAIL",[self()]),
@@ -301,11 +302,18 @@ par_solve_guesses(PoolPid,G,NbrOfGuessesLeft) ->
         [M|Ms] ->
             %io:fwrite("~n~w  G is : ~w~n",[self(), G]),
             %io:fwrite("~n~w   We have a list!~n",[self()]),
-            Ref = make_ref(),
             PoolPid ! {queue, {self(), Ref, fun solve_refined/1,[M]}},
             %io:fwrite("~n~w   We have queued up some work!~n",[self()]),
-            par_solve_guesses(PoolPid,Ms,NbrOfGuessesLeft+1)
+            par_solve_guesses(PoolPid,Ms,NbrOfGuessesLeft+1,Ref)
     end.
+
+flush() ->
+    receive
+        _ -> flush()
+    after 
+        0 -> ok
+    end.
+
 
 %% benchmarks
 
@@ -320,7 +328,7 @@ repeat(F) ->
     [F() || _ <- lists:seq(1,?EXECUTIONS)].
 
 benchmarks(Puzzles) ->
-    PoolPid = pool_start(7),
+    PoolPid = pool_start(4),
     [{Name,bm(fun()->solve(PoolPid,M) end)} || {Name,M} <- Puzzles].
 
 benchmarks() ->
