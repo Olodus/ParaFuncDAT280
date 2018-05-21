@@ -4,11 +4,14 @@
 %% returns the pid of the pool manager
 pool_start(Nbr_workers) ->
     Nodes = nodes(),
-    lists:map(fun(Node) -> pool_init(Node, Nbr_workers) end, Nodes).
+    R = lists:map(fun(Node) -> pool_init(Node, Nbr_workers) end, Nodes),
+    %io:fwrite("~n~w Nodes: ~w~n", [self(), R]),
+    R.
 
 pool_init(Node, Nbr_workers) -> 
     Pool_pid = spawn_link(Node, pool,pool_loop,[[],[]]),
     Ws = start_workers(Node, Nbr_workers, Pool_pid),
+    %io:fwrite("~n~w Workers: ~w~n", [self(), Ws]), 
     Pool_pid ! {new_ws, Ws},
     Pool_pid.
 
@@ -32,7 +35,10 @@ pool_loop([],W) ->
                     pool_loop([Pid],W)
             end;
         {new_ws, Workers} -> pool_loop(Workers,W); %!!!What if there is work?!!!!
-        {queue, Work} -> pool_loop([],[Work]++W);
+        {queue, Work} -> 
+
+            %io:fwrite("~n~w Received Work but no available worker: ~w~n",[self(), Work]), 
+            pool_loop([],[Work]++W);
         {exit, Pid} -> pool_loop([],[])
     end;
 pool_loop([X | Xs],W) ->
@@ -41,7 +47,8 @@ pool_loop([X | Xs],W) ->
             Pid ! {ok, Ref, X}, 
             pool_loop(Xs,W);
         {available, Pid} -> pool_loop([Pid] ++ [X|Xs],W);
-        {queue, Work} -> 
+        {queue, Work} ->
+            %io:fwrite("~n~w Received Work: ~w~n",[self(), Work]), 
             {RetPid, RetRef, Func, Args} = Work,
             X ! {work, RetPid, RetRef, Func, Args},
             pool_loop(Xs, W);
@@ -56,10 +63,15 @@ worker(Pool_pid) ->
         {work, Pid, Ref, F, Args} ->  
                 case catch apply(F, Args) of
                     {'EXIT', no_solution} ->
-                                   Pid ! {error, self(), Ref},
+                        %io:fwrite("~n~w No solution :s ~n", [self()]),
+                                    Pid ! {error, self(), Ref},
                                    Pool_pid ! {available, self()},
                                    worker(Pool_pid);
-                    Result -> Pid ! {result, self(), Ref, Result}, 
+                    Result -> 
+                        
+                            %io:fwrite("~n~w Solution: ~w ~n", [self(), Result]), 
+                            %io:fwrite("~n~w Sending solution to: ~w ~n Ref is: ~w~n", [self(), Pid, Ref]),
+                            Pid ! {result, self(), Ref, Result}, 
                               Pool_pid ! {available, self()}, 
                               worker(Pool_pid)
                 end

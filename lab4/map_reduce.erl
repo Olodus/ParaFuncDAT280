@@ -127,29 +127,40 @@ map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
 
     Work = divide_work(Splits, PoolPids),
    
+    %io:fwrite("~n~w Pool Pids: ~w~n", [self(), PoolPids]),
     Mappers = lists:map(fun({MW, Pp}) -> 
-                        Ref = make_ref(), 
-                        Pp ! {queue, Parent, Ref, fun map_bal/3, [Map, R, MW]}, 
+                        Ref = make_ref(),
+                        %io:fwrite("~nSending MW: ~w to Pp: ~w~n", [MW, Pp]), 
+                        Pp ! {queue, {Parent, Ref, fun map_bal/3, [Map, R, MW]}}, 
                         Ref  end, Work),
 
-    io:fwrite("~nMappers: ~w~n", [Mappers]),
+    %io:fwrite("~nMappers: ~w~n", [Mappers]),
 
 
     Mappeds = 
 	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Mappers],
-   
+
+
+    %io:fwrite("~nAll map results received~n"),
+
     RedWork = divide_work(lists:seq(0,R-1), PoolPids),
 
+    %io:fwrite("~nAll reduce tasks started~n"),
     Reducers = lists:map(fun({RW, Pp}) -> 
                        Ref = make_ref(),
-                       Pp ! {queue, Parent, Ref, fun red_bal/3, [Reduce, RW, Mappeds]}, 
+                       Pp ! {queue, {Parent, Ref, fun red_bal/3, [Reduce, RW, Mappeds]}}, 
                        Ref end, RedWork),
+    
+
+    %io:fwrite("~nAll reduce results received~n"),
+    
     Reduceds = 
 	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Reducers],
     
     lists:sort(lists:flatten(Reduceds)).
 
 map_bal(Map, R, Split) ->
+    {ok,web} = dets:open_file(web,[{file,"web.dat"}]),
     Mapped = [{erlang:phash2(K2,R),{K2,V2}}                   
             || {K,V} <- Split,
             {K2,V2} <- Map(K,V)],
