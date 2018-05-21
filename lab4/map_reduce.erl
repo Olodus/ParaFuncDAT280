@@ -15,6 +15,8 @@
 %% values, and generates in turn a list of key-value pairs. These are
 %% the result.
 
+%% Sequential implementation
+
 map_reduce_seq(Map,Reduce,Input) ->
     Mapped = [{K2,V2}
 	      || {K,V} <- Input,
@@ -34,6 +36,17 @@ group(K,Vs,[{K,V}|Rest]) ->
     group(K,[V|Vs],Rest);
 group(K,Vs,Rest) ->
     [{K,lists:reverse(Vs)}|group(Rest)].
+
+split_into(N,L) ->
+    split_into(N,L,length(L)).
+
+split_into(1,L,_) ->
+    [L];
+split_into(N,L,Len) ->
+    {Pre,Suf} = lists:split(Len div N,L),
+    [Pre|split_into(N-1,Suf,Len-(Len div N))].
+
+%% Parallel implementation
 
 map_reduce_par(Map,M,Reduce,R,Input) ->
     Parent = self(),
@@ -65,6 +78,8 @@ spawn_reducer_par(Parent,Reduce,I,Mappeds) ->
 		 I==J,
 		 KV <- KVs],
     spawn_link(fun() -> Parent ! {self(),reduce_seq(Reduce,Inputs)} end).
+
+%% Distributed implementation
 
 map_reduce_dis(Map,M,Reduce,R,Input) ->
     Parent = self(),
@@ -100,15 +115,6 @@ spawn_mapper_dis(Parent,Map,R,Split, Node) ->
 			Parent ! {self(),group(lists:sort(Mapped))}
 		end).
 
-split_into(N,L) ->
-    split_into(N,L,length(L)).
-
-split_into(1,L,_) ->
-    [L];
-split_into(N,L,Len) ->
-    {Pre,Suf} = lists:split(Len div N,L),
-    [Pre|split_into(N-1,Suf,Len-(Len div N))].
-
 spawn_reducer_dis(Parent,Reduce,I,Mappeds, Node) ->
     Inputs = [KV
 	      || Mapped <- Mappeds,
@@ -117,8 +123,6 @@ spawn_reducer_dis(Parent,Reduce,I,Mappeds, Node) ->
 		 KV <- KVs],
     spawn_link(Node, fun() -> Parent ! {self(),reduce_seq(Reduce,Inputs)} end).
 
-
-
 %% Balanced Distributed implementation
 
 map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
@@ -126,37 +130,24 @@ map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
     Splits = split_into(M,Input),
 
     Work = divide_work(Splits, PoolPids),
-   
-    %io:fwrite("~n~w Pool Pids: ~w~n", [self(), PoolPids]),
     Mappers = lists:map(fun({MW, Pp}) -> 
                         Ref = make_ref(),
                         %io:fwrite("~nSending MW: ~w to Pp: ~w~n", [MW, Pp]), 
                         Pp ! {queue, {Parent, Ref, fun map_bal/3, [Map, R, MW]}}, 
                         Ref  end, Work),
 
-    %io:fwrite("~nMappers: ~w~n", [Mappers]),
-
-
     Mappeds = 
 	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Mappers],
 
-
-    %io:fwrite("~nAll map results received~n"),
-
     RedWork = divide_work(lists:seq(0,R-1), PoolPids),
 
-    %io:fwrite("~nAll reduce tasks started~n"),
     Reducers = lists:map(fun({RW, Pp}) -> 
                        Ref = make_ref(),
                        Pp ! {queue, {Parent, Ref, fun red_bal/3, [Reduce, RW, Mappeds]}}, 
                        Ref end, RedWork),
     
-
-    %io:fwrite("~nAll reduce results received~n"),
-    
     Reduceds = 
 	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Reducers],
-    
     lists:sort(lists:flatten(Reduceds)).
 
 map_bal(Map, R, Split) ->
@@ -185,7 +176,4 @@ divide_work([], _, _) -> [];
 divide_work(Work, Nodes, []) -> divide_work(Work, Nodes, Nodes);
 divide_work([W|Work], Nodes, [Node|Tail]) ->
     [{W, Node}] ++ divide_work(Work, Nodes, Tail).
-
-
-
 
