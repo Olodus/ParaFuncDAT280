@@ -5,7 +5,7 @@
 
 -module(map_reduce).
 -compile(export_all).
-
+-import(pool,[pool_start/1]).
 %% We begin with a simple sequential implementation, just to define
 %% the semantics of map-reduce. 
 
@@ -118,6 +118,54 @@ spawn_reducer_dis(Parent,Reduce,I,Mappeds, Node) ->
     spawn_link(Node, fun() -> Parent ! {self(),reduce_seq(Reduce,Inputs)} end).
 
 
+
+%% Balanced Distributed implementation
+
+map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
+    Parent = self(),
+    Splits = split_into(M,Input),
+
+    Work = divide_work(Splits, PoolPids),
+   
+    Mappers = lists:map(fun({MW, Pp}) -> 
+                        Ref = make_ref(), 
+                        Pp ! {queue, Parent, Ref, fun map_bal/3, [Map, R, MW]}, 
+                        Ref  end, Work),
+
+    io:fwrite("~nMappers: ~w~n", [Mappers]),
+
+
+    Mappeds = 
+	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Mappers],
+   
+    RedWork = divide_work(lists:seq(0,R-1), PoolPids),
+
+    Reducers = lists:map(fun({RW, Pp}) -> 
+                       Ref = make_ref(),
+                       Pp ! {queue, Parent, Ref, fun red_bal/3, [Reduce, RW, Mappeds]}, 
+                       Ref end, RedWork),
+    Reduceds = 
+	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Reducers],
+    
+    lists:sort(lists:flatten(Reduceds)).
+
+map_bal(Map, R, Split) ->
+    Mapped = [{erlang:phash2(K2,R),{K2,V2}}                   
+            || {K,V} <- Split,
+            {K2,V2} <- Map(K,V)],
+    group(lists:sort(Mapped)).
+
+red_bal(Reduce, I, Mappeds) ->
+    Inputs = [KV
+	      || Mapped <- Mappeds,
+		 {J,KVs} <- Mapped,
+		 I==J,
+		 KV <- KVs],
+    reduce_seq(Reduce,Inputs).
+
+
+%% Helper functions
+
 %% Helper functions to divide work between distributed nodes
 divide_work(Work, Nodes) -> 
    divide_work(Work, Nodes, Nodes).
@@ -126,3 +174,7 @@ divide_work([], _, _) -> [];
 divide_work(Work, Nodes, []) -> divide_work(Work, Nodes, Nodes);
 divide_work([W|Work], Nodes, [Node|Tail]) ->
     [{W, Node}] ++ divide_work(Work, Nodes, Tail).
+
+
+
+
