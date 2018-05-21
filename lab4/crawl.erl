@@ -10,8 +10,9 @@
 %% be started using inets:start().
 crawl(Url,D) ->
     Pages = follow(D,[{Url,undefined}]),
-    [{U,Body} || {U,Body} <- Pages,
-		 Body /= undefined].
+    dets:open_file(web, [{file, "web.dat"}]),
+    dets:insert(web,  [{U,Body} || {U,Body} <- Pages,
+		 Body /= undefined]).
 
 follow(0,KVs) ->
     KVs;

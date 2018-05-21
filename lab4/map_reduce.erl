@@ -39,22 +39,64 @@ map_reduce_par(Map,M,Reduce,R,Input) ->
     Parent = self(),
     Splits = split_into(M,Input),
     Mappers = 
-	[spawn_mapper(Parent,Map,R,Split)
+	[spawn_mapper_par(Parent,Map,R,Split)
 	 || Split <- Splits],
     Mappeds = 
 	[receive {Pid,L} -> L end || Pid <- Mappers],
     Reducers = 
-	[spawn_reducer(Parent,Reduce,I,Mappeds) 
+	[spawn_reducer_par(Parent,Reduce,I,Mappeds) 
 	 || I <- lists:seq(0,R-1)],
     Reduceds = 
 	[receive {Pid,L} -> L end || Pid <- Reducers],
     lists:sort(lists:flatten(Reduceds)).
 
-spawn_mapper(Parent,Map,R,Split) ->
+spawn_mapper_par(Parent,Map,R,Split) ->
     spawn_link(fun() ->
 			Mapped = [{erlang:phash2(K2,R),{K2,V2}}
 				  || {K,V} <- Split,
 				     {K2,V2} <- Map(K,V)],
+			Parent ! {self(),group(lists:sort(Mapped))}
+		end).
+
+spawn_reducer_par(Parent,Reduce,I,Mappeds) ->
+    Inputs = [KV
+	      || Mapped <- Mappeds,
+		 {J,KVs} <- Mapped,
+		 I==J,
+		 KV <- KVs],
+    spawn_link(fun() -> Parent ! {self(),reduce_seq(Reduce,Inputs)} end).
+
+map_reduce_dis(Map,M,Reduce,R,Input) ->
+    Parent = self(),
+    Splits = split_into(M,Input),
+    Nodes = nodes(),
+
+    MapWork = divide_work(Splits, Nodes),
+    
+    Mappers = 
+	[spawn_mapper_dis(Parent,Map,R,Split, Node)
+	|| {Split, Node} <- MapWork],
+  
+    Mappeds = 
+	[receive {Pid,L} -> L end || Pid <- Mappers],
+
+    RedWork = divide_work(lists:seq(0,R-1), Nodes),
+
+    Reducers = 
+	[spawn_reducer_dis(Parent,Reduce,I,Mappeds, Node) 
+	 || {I, Node} <- RedWork],
+    Reduceds = 
+	[receive {Pid,L} -> L end || Pid <- Reducers],
+    lists:sort(lists:flatten(Reduceds)).
+
+spawn_mapper_dis(Parent,Map,R,Split, Node) ->
+    spawn_link(Node, fun() ->
+                 
+                {ok,web} = dets:open_file(web,[{file,"web.dat"}]),
+                Mapped = [{erlang:phash2(K2,R),{K2,V2}}
+				  || {K,V} <- Split,
+				     {K2,V2} <- Map(K,V)],
+
 			Parent ! {self(),group(lists:sort(Mapped))}
 		end).
 
@@ -67,11 +109,20 @@ split_into(N,L,Len) ->
     {Pre,Suf} = lists:split(Len div N,L),
     [Pre|split_into(N-1,Suf,Len-(Len div N))].
 
-spawn_reducer(Parent,Reduce,I,Mappeds) ->
+spawn_reducer_dis(Parent,Reduce,I,Mappeds, Node) ->
     Inputs = [KV
 	      || Mapped <- Mappeds,
 		 {J,KVs} <- Mapped,
 		 I==J,
 		 KV <- KVs],
-    spawn_link(fun() -> Parent ! {self(),reduce_seq(Reduce,Inputs)} end).
+    spawn_link(Node, fun() -> Parent ! {self(),reduce_seq(Reduce,Inputs)} end).
 
+
+%% Helper functions to divide work between distributed nodes
+divide_work(Work, Nodes) -> 
+   divide_work(Work, Nodes, Nodes).
+
+divide_work([], _, _) -> [];
+divide_work(Work, Nodes, []) -> divide_work(Work, Nodes, Nodes);
+divide_work([W|Work], Nodes, [Node|Tail]) ->
+    [{W, Node}] ++ divide_work(Work, Nodes, Tail).

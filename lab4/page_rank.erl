@@ -3,6 +3,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(page_rank).
+-import(pool).
 -compile(export_all).
 
 %% Use map_reduce to count word occurrences
@@ -24,6 +25,19 @@ page_rank() ->
 page_rank_par() ->
     dets:open_file(web,[{file,"web.dat"}]),
     Urls = dets:foldl(fun({K,_},Keys)->[K|Keys] end,[],web),
-    map_reduce:map_reduce_par(fun map/2, 32, fun reduce/2, 32, 
+    map_reduce:map_reduce_par(fun page_rank:map/2, 32, fun page_rank:reduce/2, 32, 
 			      [{Url,ok} || Url <- Urls]).
 
+
+page_rank_dis() ->
+    dets:open_file(web,[{file,"web.dat"}]),
+    Urls = dets:foldl(fun({K,_},Keys)->[K|Keys] end,[],web),
+    map_reduce:map_reduce_dis(fun page_rank:map/2, 32, fun page_rank:reduce/2, 32, 
+			      [{Url,ok} || Url <- Urls]).
+
+
+page_rank_dis_bal() ->
+    dets:open_file(web,[{file,"web.dat"}]),
+    Urls = dets:foldl(fun({K,_},Keys)->[K|Keys] end,[],web),
+    map_reduce:map_reduce_dis(fun page_rank:map/2, 32, fun page_rank:reduce/2, 32, 
+			      [{Url,ok} || Url <- Urls]).
