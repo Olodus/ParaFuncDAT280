@@ -130,25 +130,41 @@ map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
     Splits = split_into(M,Input),
 
     Work = divide_work(Splits, PoolPids),
-    Mappers = lists:map(fun({MW, Pp}) -> 
+    MapFunc = fun({MW, Pp}) -> 
                         Ref = make_ref(),
                         %io:fwrite("~nSending MW: ~w to Pp: ~w~n", [MW, Pp]), 
                         Pp ! {queue, {Parent, Ref, fun map_bal/3, [Map, R, MW]}}, 
-                        Ref  end, Work),
+                        {Pp, Ref, MW}  end,
+    Mappers = lists:map(MapFunc, Work),
 
-    Mappeds = 
-	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Mappers],
+    Mappeds = receive_result(MapFunc, Work),
 
     RedWork = divide_work(lists:seq(0,R-1), PoolPids),
-
-    Reducers = lists:map(fun({RW, Pp}) -> 
+    RedFunc = fun({RW, Pp}) -> 
                        Ref = make_ref(),
                        Pp ! {queue, {Parent, Ref, fun red_bal/3, [Reduce, RW, Mappeds]}}, 
-                       Ref end, RedWork),
+                       {Pp, Ref, RW} end,
+    Reducers = lists:map(RedFunc, RedWork),
     
-    Reduceds = 
-	[receive {result, Pid, Ref, Result} -> Result end || Ref <- Reducers],
-    lists:sort(lists:flatten(Reduceds)).
+    Reduceds = receive_result(RedFunc,RedWork).
+
+receive_result(_, []) ->
+    [].
+receive_result(SendFunc, Work) ->
+    receive
+        {result, Pid, Ref, Result} -> 
+            [Result]++receive_result(SendFunc, lists:delete({_,Ref,_},Work));
+        {'EXIT', Node, _} -> 
+            CrashedWork = filter(fun({_,X}) -> is_pid_on_node(X,Node) end, Work),
+            NotCrashedWork = filter(fun({_,X}) -> not is_pid_on_node(X,Node) end,Work),
+            {W, _} = unzip(CrashedWork),
+            DevW = divide_work(W, lists:dropwhile(fun(X) -> is_pid_on_node(X,Node) end,PoolPids)),
+            ResentWork = lists:map(SendFunc, DivW),
+            receive_result(SendFunc,ResentWork++NotCrashedWork)
+    end.
+
+is_pid_on_node(Pid,Node) ->
+    node(Pid) /= Node.
 
 map_bal(Map, R, Split) ->
     {ok,web} = dets:open_file(web,[{file,"web.dat"}]),
