@@ -36,9 +36,15 @@ reduce(Url,Bodies) ->
     end.
 
 fetch_url(Url) ->
-    case httpc:request(Url) of
-	{ok,{_,_Headers,Body}}  ->
-	    Body;
+    case httpc:request(get,{Url,[]},[{timeout,5000}],[]) of
+	{ok,{_,Headers,Body}}  ->
+            case proplists:get_value("content-type",Headers) of
+              "text/html"++_ ->
+                io:format("Crawled ~s\n",[Url]),
+                Body;
+              _ ->
+                ""
+            end;
 	_ ->
 	    ""
     end.
@@ -56,7 +62,7 @@ find_urls(Url,Html) ->
 	       end,
     %% Find links to files in the same directory, which need to be
     %% turned into complete URLs.
-    Relative = case re:run(Lower,"href *= *\"(?!http:).*?(?=\")",[global]) of
+    Relative = case re:run(Lower,"href *= *\"(?!http:)(?!https:).*?(?=\")",[global]) of
 		   {match,RLocs} ->
 		       [lists:sublist(Html,Pos+1,Len)
 			|| [{Pos,Len}] <- RLocs];
