@@ -84,7 +84,7 @@ spawn_reducer_par(Parent,Reduce,I,Mappeds) ->
 map_reduce_dis(Map,M,Reduce,R,Input) ->
     Parent = self(),
     Splits = split_into(M,Input),
-    Nodes = nodes(),
+    Nodes = nodes() ++ [node()],
 
     MapWork = divide_work(Splits, Nodes),
     
@@ -125,39 +125,45 @@ spawn_reducer_dis(Parent,Reduce,I,Mappeds, Node) ->
 
 %% Balanced Distributed implementation
 
+
 map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
     Parent = self(),
     Splits = split_into(M,Input),
 
     Work = divide_work(Splits, PoolPids),
-    MapFunc = fun({MW, Pp}) -> 
+    MapFunc = fun({MW, Pp}) ->
                         Ref = make_ref(),
-                        %io:fwrite("~nSending MW: ~w to Pp: ~w~n", [MW, Pp]), 
-                        Pp ! {queue, {Parent, Ref, fun map_bal/3, [Map, R, MW]}}, 
+                        Pp ! {queue, {Parent, Ref, fun map_bal/3, [Map, R, MW]}},
                         {Pp, Ref, MW}  end,
     Mappers = lists:map(MapFunc, Work),
-
+    
     Mappeds = receive_result(Mappers, MapFunc, PoolPids),
+
     P1 = lists:last(Mappeds),
-    M1 = lists:dropLast(Mappeds),
+    M1 = lists:droplast(Mappeds),
 
     RedWork = divide_work(lists:seq(0,R-1), P1),
-    RedFunc = fun({RW, Pp}) -> 
+    RedFunc = fun({RW, Pp}) ->
                        Ref = make_ref(),
-                       Pp ! {queue, {Parent, Ref, fun red_bal/3, [Reduce, RW, M1]}}, 
+                       Pp ! {queue, {Parent, Ref, fun red_bal/3, [Reduce, RW, M1]}},
                        {Pp, Ref, RW} end,
     Reducers = lists:map(RedFunc, RedWork),
-    
+   
     Reduceds = receive_result(Reducers, RedFunc, P1),
-    lists:dropLast(Reduceds).
+
+    lists:sort(lists:flatten(lists:droplast(Reduceds))).
+
+
 
 receive_result([], _, PoolPids) -> [PoolPids];
 receive_result(Work, SendFunc, PoolPids) ->
     receive
-        {result, _, Ref, Result} -> 
-            F = fun(T) -> element(2,T) == Ref end,
-            [Result]++receive_result(lists:filter(F,Work), SendFunc, PoolPids);
-        {'EXIT', Node, _} -> 
+        {result, _, Ref, Result} ->
+            F = fun(T) -> element(2,T) /= Ref end,
+            Filtered_work = 
+            [Result]++receive_result(lists:filter(F, Work), SendFunc, PoolPids);
+        {'EXIT', Node, _} ->
+            io:fwrite("~n~nNode went Down ~w~n", [Node]),
             CrashedWork = lists:filter(fun({_,X}) -> is_pid_on_node(X,Node) end, Work),
             NotCrashedWork = lists:filter(fun({_,X}) -> not is_pid_on_node(X,Node) end,Work),
             {W, _} = lists:unzip(CrashedWork),
@@ -169,6 +175,8 @@ receive_result(Work, SendFunc, PoolPids) ->
 
 is_pid_on_node(Pid,Node) ->
     node(Pid) /= Node.
+
+
 
 map_bal(Map, R, Split) ->
     {ok,web} = dets:open_file(web,[{file,"web.dat"}]),
