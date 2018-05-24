@@ -153,6 +153,57 @@ map_reduce_dis_bal(PoolPids, Map, M, Reduce, R, Input) ->
 
     lists:sort(lists:flatten(lists:droplast(Reduceds))).
 
+map_reduce_dis_bal_new(PoolPids, Map, M, Reduce, R, Input) ->
+    Parent = self(),
+    Splits = split_into(M,Input),
+
+    Work = divide_work(Splits, PoolPids),
+    MapFunc = fun({MW, Pp}) ->
+                        Ref = make_ref(),
+                        Pp ! {ask_and_wait, Parent, Ref},
+                        {Pp, Ref, [Map, R, MW]}  end,
+    Mappers = lists:map(MapFunc, Work),
+    
+    Mappeds = receive_result_new(Mappers, MapFunc, fun map_bal/3, PoolPids),
+
+    P1 = lists:last(Mappeds),
+    M1 = lists:droplast(Mappeds),
+
+    RedWork = divide_work(lists:seq(0,R-1), P1),
+    RedFunc = fun({RW, Pp}) ->
+                       Ref = make_ref(),
+                       Pp ! {ask_and_wait, Parent, Ref},
+                       {Pp, Ref, [Reduce, RW, M1]} end,
+    Reducers = lists:map(RedFunc, RedWork),
+   
+    Reduceds = receive_result_new(Reducers, RedFunc, fun red_bal/3, P1),
+
+    lists:sort(lists:flatten(lists:droplast(Reduceds))).
+
+
+receive_result_new([], _, _, PoolPids) -> [PoolPids];
+receive_result_new(Work, SendFunc, WorkFunc, PoolPids) ->
+    receive
+        {ok, Ref, Wp} ->
+            UnsentWork = lists:find(fun({_,R,_}) -> Ref == R end, Work),
+            Wp ! {work, self(), Ref, WorkFunc, element(3,UnsentWork)},
+            receive_result_new(lists:delete(UnsentWork,Work),SendFunc,WorkFunc,PoolPids);
+        {result, _, Ref, Result} ->
+            F = fun(T) -> element(2,T) /= Ref end,
+            Filtered_work = 
+            [Result]++receive_result(lists:filter(F, Work), SendFunc, PoolPids);
+        {'EXIT', Node, _} ->
+            F2 = fun({Pid, _, _}) -> is_pid_on_node(Pid,Node) end,
+            CrashedWork = lists:filter(F2, Work),
+            F3 = fun({Pid, _, _}) -> not is_pid_on_node(Pid,Node) end,
+            NotCrashedWork = lists:filter(F3, Work),
+            CWork = lists:map(fun({_,_,W}) -> W end, CrashedWork),
+            NewPool = lists:filter(fun(X) -> not is_pid_on_node(X,Node) end,PoolPids),
+            DivW = divide_work(CWork, NewPool),
+            ResentWork = lists:map(SendFunc, DivW),
+            receive_result(ResentWork++NotCrashedWork, SendFunc, NewPool)
+    end.
+
 
 
 receive_result([], _, PoolPids) -> [PoolPids];

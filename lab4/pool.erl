@@ -18,36 +18,48 @@ start_workers(Node, X, Pp) -> [spawn_link(Node, pool, worker, [Pp]) | start_work
 
 %% Waits for messages from workgivers or workers finished with some work.
 %% Calls itself
-pool_loop([],W) ->
+pool_loop([],W,Waiting) ->
     receive 
         {ask, Pid, Ref} -> 
             Pid ! {no_avail, Ref, 0}, 
-            pool_loop([],W);
+            pool_loop([],W,Waiting);
+        {ask_and_wait, Pid, Ref} ->
+            [{Pid,Ref}] ++ Waiting;
         {available, Pid} -> 
             case length(W)>0 of
                 true ->
                     {RetPid,RetRef,Func,Args} = hd(W),
                     Pid ! {work,RetPid,RetRef,Func,Args},
-                    pool_loop([],tl(W));
+                    pool_loop([],tl(W),Waiting);
                 false ->
-                    pool_loop([Pid],W)
+                    case length(Waiting) > 0 of
+                        true ->
+                            {MainPid, WRef} = hd(Waiting),
+                            MainPid ! {ok, WRef, Pid},
+                            pool_loop([],W,tl(Waiting));
+                        false ->
+                            pool_loop([Pid],W,Waiting)
+                    end
             end;
-        {new_ws, Workers} -> pool_loop(Workers,W); %!!!What if there is work?!!!!
+        {new_ws, Workers} -> pool_loop(Workers,W,[]); %!!!What if there is work?!!!!
         {queue, Work} -> 
-            pool_loop([],[Work]++W);
-        {exit, Pid} -> pool_loop([],[])
+            pool_loop([],[Work]++W,Waiting);
+        {exit, Pid} -> pool_loop([],[],[])
     end;
-pool_loop([X | Xs],W) ->
+pool_loop([X | Xs],W,Waiting) ->
     receive 
         {ask, Pid, Ref} -> 
             Pid ! {ok, Ref, X}, 
-            pool_loop(Xs,W);
-        {available, Pid} -> pool_loop([Pid] ++ [X|Xs],W);
+            pool_loop(Xs,W,Waiting);
+        {ask_and_wait, Pid, Ref} ->
+            Pid ! {ok, Ref, X},
+            pool_loop(Xs,W,Waiting);
+        {available, Pid} -> pool_loop([Pid] ++ [X|Xs],W,Waiting);
         {queue, Work} ->
             {RetPid, RetRef, Func, Args} = Work,
             X ! {work, RetPid, RetRef, Func, Args},
-            pool_loop(Xs, W);
-        {exit, Pid} -> pool_loop([X|Xs],[])
+            pool_loop(Xs, W,Waiting);
+        {exit, Pid} -> pool_loop([X|Xs],[],[])
     end.
 
 
