@@ -163,18 +163,19 @@ receive_result(Work, SendFunc, PoolPids) ->
             Filtered_work = 
             [Result]++receive_result(lists:filter(F, Work), SendFunc, PoolPids);
         {'EXIT', Node, _} ->
-            io:fwrite("~n~nNode went Down ~w~n", [Node]),
-            CrashedWork = lists:filter(fun({_,X}) -> is_pid_on_node(X,Node) end, Work),
-            NotCrashedWork = lists:filter(fun({_,X}) -> not is_pid_on_node(X,Node) end,Work),
-            {W, _} = lists:unzip(CrashedWork),
-            NewPool = lists:dropwhile(fun(X) -> is_pid_on_node(X,Node) end,PoolPids),
-            DivW = divide_work(W, NewPool),
+            F2 = fun({Pid, Ref, Wo}) -> is_pid_on_node(Pid,Node) end,
+            CrashedWork = lists:filter(F2, Work),
+            F3 = fun({Pid, Ref, Wo}) -> not is_pid_on_node(Pid,Node) end,
+            NotCrashedWork = lists:filter(F3, Work),
+            CWork = lists:map(fun({_,_,W}) -> W end, CrashedWork),
+            NewPool = lists:filter(fun(X) -> not is_pid_on_node(X,Node) end,PoolPids),
+            DivW = divide_work(CWork, NewPool),
             ResentWork = lists:map(SendFunc, DivW),
             receive_result(ResentWork++NotCrashedWork, SendFunc, NewPool)
     end.
 
 is_pid_on_node(Pid,Node) ->
-    node(Pid) /= Node.
+    node(Pid) == node(Node).
 
 
 
