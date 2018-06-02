@@ -158,7 +158,7 @@ merge ((x:xs), (y:ys))
 -- Forks/spawn for everytime mergesort splits the list. 
 parMergesort :: (NFData a, Ord a) => [a] -> Int -> Par [a]
 parMergesort x depth 
-  | depth > 8 = return (mergesort x)
+  | depth > 6 = return (mergesort x)
   | l > 1 = do 
     i <- spawn (parMergesort x1 (depth+1))
     j <- spawn (parMergesort x2 (depth+1))

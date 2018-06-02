@@ -16,9 +16,9 @@ main = do
   
 
   defaultMain [
-    bgroup "mergesort" [ bench "sequential" $ whnf length (mergesort rs)
-                       , bench "Par Monad"  $ whnf length (monadMerge rs)
-                       , bench "Strategies" $ whnf length (stratMerge rs)
+    bgroup "mergesort" [ bench "sequential" $ nf (mergesort) rs
+                       , bench "Par Monad"  $ nf (monadMerge) rs
+                       , bench "Strategies" $ nf (stratMerge) rs
                        ]
     ]
 
