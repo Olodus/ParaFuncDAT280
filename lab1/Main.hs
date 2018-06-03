@@ -12,13 +12,15 @@ main = do
   -- handy (later) to give same input different parallel functions
 
   let rs = crud xs ++ ys
-  --print $ length (mergesort rs)
-  
+  --print "Seq \n"
+  --print $ mergesort rs
+  --print "Strat \n"
+  --print $ stratMerge2 rs
 
   defaultMain [
-    bgroup "mergesort" [ bench "sequential" $ nf (mergesort) rs
-                       , bench "Par Monad"  $ nf (monadMerge) rs
-                       , bench "Strategies" $ nf (stratMerge) rs
+    bgroup "mergesort" [-- bench "Par Monad"  $ nf (monadMerge) rs
+                       --, bench "Sequential" $ nf (mergesort) rs
+                          bench "Strategies" $ nf (stratMerge3) rs
                        ]
     ]
 

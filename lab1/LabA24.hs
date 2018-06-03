@@ -151,6 +151,12 @@ merge ((x:xs), (y:ys))
   | x <= y = (x:merge (xs, (y:ys)))
   | x >  y = (y:merge ((x:xs), ys))
 
+merge2 :: Ord a => [a] -> [a] -> [a]
+merge2 [] y = y
+merge2 x [] = x
+merge2 (x:xs) (y:ys)  
+    | x <= y = x : merge2 xs (y:ys)
+    | x >  y = y : merge2 (x:xs) ys
 
 -- With Par Monad
 
@@ -186,7 +192,28 @@ monadMerge l = runPar $ parMergesort l 0
 -- stratMerge
 -- Sorts a list with mergesort using Strategies
 stratMerge :: Ord a => [a] -> [a]
-stratMerge l = mergesort l `using` mergeStrat 8 
+stratMerge l = mergesort l `using` mergeStrat 5 
+
+stratMerge2 :: Ord a => [a] -> [a]
+stratMerge2 l = divAndConq f depthtest (merge2) (divide) l
+    where f :: Ord a => [a] -> [a]
+          f x = x
+          depthtest x = length x < 1000 
+
+stratMerge3 :: Ord a => [a] -> [a]
+stratMerge3 l = divConq f l threshold combine divide
+    where 
+        f   :: Ord a => [a] -> [a]
+        f   x = x
+        threshold :: [a] -> Bool
+        threshold x = length x < 1000
+        combine   :: Ord a => [a] -> [a] -> [a]
+        combine x1 x2 = merge2 x1 x2
+        divide    :: [a] -> Maybe([a],[a])
+        divide x = case (splitAt (length x `div` 2) x) of
+                     ([],x2) -> Nothing
+                     (x1,[]) -> Nothing
+                     res     -> Just res
 
 mergeStrat :: Ord a =>  Integer -> Strategy [a]
 mergeStrat threshold = evalMerge threshold
@@ -209,3 +236,44 @@ evalMerge t x | (t <= 0) = do -- after threshold
      l2' <- join l2
      return (merge (l1', l2'))
 
+divide :: [a] -> Maybe([a],[a])
+divide x = case (splitAt (length x `div` 2) x) of 
+             (x1, []) -> Nothing
+             ([], x2) -> Nothing
+             pair     -> Just pair
+
+divAndConq :: (a -> b) 
+           -> (a -> Bool)
+           -> (b -> b -> b)
+           -> (a -> Maybe (a,a))
+           -> a -> b
+divAndConq f stopdividing combine divide arg = go arg
+    where 
+        go arg = 
+            case (divide arg) of
+              Nothing -> f arg
+              Just (l, r) -> combine lnew rnew `using` strat
+                where lnew = go l
+                      rnew = go r
+                      strat x = do para lnew; para rnew; return x
+                        where para | stopdividing arg = rseq
+                                   | otherwise        = rpar
+
+divConq :: (a -> b) 
+        -> a
+        -> (a -> Bool)
+        -> (b -> b -> b)
+        -> (a -> Maybe (a,a))
+        -> b
+divConq f arg threshold combine divide = go arg
+    where
+        go arg =
+            case divide arg of
+              Nothing   -> f arg
+              Just (l0, r0) -> combine l1 r1 `using` strat 
+                where 
+                    l1 = go l0
+                    r1 = go r0
+                    strat x = do r l1; r r1; return x
+                       where r | threshold arg = rseq
+                               | otherwise     = rpar
