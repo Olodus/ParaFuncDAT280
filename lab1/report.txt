@@ -13,5 +13,12 @@ Furthermore the amount of GC made it hard for us to realize from the picture wha
 What made this extra hard for us to realize was also that the code for some reason didn't execute in parallel at all on one of our computers. 
 It wasn't until we got help from a TA that we realized what was happening.
 
-
+Reimplementing it for the final deadline of the course, we tried a bunch of different Strategy solutions.
+The final version we turn in is a Divide and Conquer-skeleton solution which is very close to the one given online and in "Practical Concurrent Haskell". 
+We know that this solution still doesn't give a speedup for the Strategy version over the sequential.
+We have tried different granularity, different compiler flags but still it doesn't improve. 
+Threadscope tells us that we have a bunch of fizzled sparks in that solution but we find a solution to that. 
+It also shows us that the HECs never really run at the same time, even though all are used during execution. 
+It never really adds up to more than 1 HEC working concurrently. 
+This would suggest some kind of dependency blocking but we can't find that either when we look. 
 
