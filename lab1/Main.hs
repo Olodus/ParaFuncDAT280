@@ -18,9 +18,9 @@ main = do
   --print $ stratMerge2 rs
 
   defaultMain [
-    bgroup "mergesort" [-- bench "Par Monad"  $ nf (monadMerge) rs
-                       --, bench "Sequential" $ nf (mergesort) rs
-                          bench "Strategies" $ nf (stratMerge3) rs
+    bgroup "mergesort" [ bench "Par Monad"  $ nf (monadMerge) rs
+                       , bench "Sequential" $ nf (mergesort) rs
+                       ,  bench "Strategies" $ nf (stratMerge) rs
                        ]
     ]
 
